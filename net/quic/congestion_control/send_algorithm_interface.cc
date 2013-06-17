@@ -6,6 +6,7 @@
 
 #include "net/quic/congestion_control/fix_rate_sender.h"
 #include "net/quic/congestion_control/tcp_cubic_sender.h"
+#include "net/quic/congestion_control/inter_arrival_sender.h"
 
 namespace net {
 
@@ -19,7 +20,7 @@ SendAlgorithmInterface* SendAlgorithmInterface::Create(
     case kTCP:
       return new TcpCubicSender(clock, kUseReno);
     case kInterArrival:
-      break;  // TODO(pwestin) Implement.
+      return new InterArrivalSender(clock);
     case kFixRate:
       return new FixRateSender(clock);
   }
