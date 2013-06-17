@@ -86,7 +86,7 @@ QuicInMemoryCache* QuicInMemoryCache::GetInstance() {
 
 const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     const BalsaHeaders& request_headers) const {
-  ResponseMap::const_iterator it = responses_.find(GetKey(request_headers));
+  ResponseMap::const_iterator it = responses_.find(GetKey(request_headers).substr(7));
   if (it == responses_.end()) {
     return NULL;
   }
