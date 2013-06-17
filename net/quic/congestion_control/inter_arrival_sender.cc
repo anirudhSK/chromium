@@ -161,7 +161,10 @@ void InterArrivalSender::OnIncomingAck(
     QuicByteCount acked_bytes,
     QuicTime::Delta rtt) {
   DCHECK(!rtt.IsZero());
-  DCHECK(!rtt.IsInfinite());
+  if (rtt.IsInfinite()) {
+    return;
+  }
+
   if (smoothed_rtt_.IsZero()) {
     smoothed_rtt_ = rtt;
   } else {
