@@ -19,7 +19,7 @@ using std::string;
 namespace net {
 namespace tools {
 
-std::string FLAGS_quic_in_memory_cache_dir = "/tmp/quic-data";
+std::string FLAGS_quic_in_memory_cache_dir = "www.mit.edu";
 
 namespace {
 
