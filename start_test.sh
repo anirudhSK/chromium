@@ -19,7 +19,7 @@ while [ $i -lt $iterations ]; do
 	sudo rm -rfv ~/.cache/google-chrome/Default/Cache/*
 	
 	#Start bandwidth throttling and start Chromium
-	trickle -d $bandwidth -u 10000 ./out/Release/chrome http://127.0.0.1/start.html | tee chromium.txt
+	trickle -d $bandwidth -u 10000 ./out/Release/chrome http://127.0.0.1/start.html
 
 	#Wait for video to play a while
 	sleep $videoPlayTime
@@ -30,10 +30,6 @@ while [ $i -lt $iterations ]; do
 	sudo killall trickle
 	sudo killall trickled
 
-	#Start ChromiumPostProcessor
-	java -jar ChromiumPostProcessor/dist/ChromiumPostProcessor.jar $bandwidth $delay
-
 	#Increment counter 
 	let i=i+1
-
 done
