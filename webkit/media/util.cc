@@ -5,31 +5,74 @@
  *      Author: devasia
  */
 
+#include <string.h>
+#include <iostream>
+#include <sys/time.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <fstream>
 #include "util.h"
 
 using namespace std;
 
+//TODO: Make these variables private
+struct timespec start, frame;
+double numFramesRandomSeek;
+bool seek;
+
+string previousMessage;
+double previousMessageTime;
+
+double frame_count;
+
 void Util::init(){
+	//Init private data members
 	numFramesRandomSeek=100;
-	loading=false;
 	seek=false;
+	frame_count=0;
+	previousMessage="";
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 }
 
 void Util::log(string message){
+
 	if(strcmp("Loading", message.c_str())==0){
-		previousMessage="Loading";
+
 		clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
 		double time=timespecDiff(&frame, &start);
-		//TODO: Write to file instead of 'cout'
-		cout<<"#"<<message<<" at "<<time<<"\n";
+
+		previousMessage="Loading";
+		previousMessageTime=time;
 	}
 
-	else if(){
+	else if((strcmp("Loading", previousMessage.c_str())==0) && (strcmp("FrameReady", message.c_str())==0)){
 
+		clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
+		double time=timespecDiff(&frame, &start);
+
+		cout<<"#Loading Time: "<<time-previousMessageTime<<" ms\n";
+
+		previousMessage="FrameReady";
+		previousMessageTime=time;
+		frame_count++;
 	}
 
+	else if((strcmp("FrameReady", previousMessage.c_str())==0) && (strcmp("FrameReady", message.c_str()))==0){
+		clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
+		double time=timespecDiff(&frame, &start);
+
+		double stall=time-previousMessageTime;
+
+		if(stall>60){
+			cout<<"#Stall of "<<stall<<" ms detected between Frame "<<frame_count<<" and "<<frame_count+1<<"\n";
+		}
+
+		previousMessage="FrameReady";
+		previousMessageTime=time;
+		frame_count++;
+	}
 }
 
 double Util::returnFramesToRandomSeek(){

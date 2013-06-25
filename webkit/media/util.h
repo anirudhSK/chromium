@@ -8,7 +8,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
-#include <string>
+#include <string.h>
 #include <iostream>
 #include <sys/time.h>
 #include <stdio.h>
@@ -21,13 +21,6 @@ using namespace std;
 class Util{
 
 private:
-	static struct timespec start, frame;
-	static bool loading;
-	static double numFramesRandomSeek;
-	static bool seek;
-
-	static string previousMessage;
-	static double previousMessageTime;
 
 	static double timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p);
 
