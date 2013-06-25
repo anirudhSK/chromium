@@ -9,23 +9,27 @@
 
 using namespace std;
 
-//TODO: Make these variables private
-struct timespec start, frame;
-bool loading=false;
-
-//These variables are user editable
-double numFramesRandomSeek=100;
-bool seek=false;
-
 void Util::init(){
+	numFramesRandomSeek=100;
+	loading=false;
+	seek=false;
+
 	clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 }
 
 void Util::log(string message){
-	clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
-	double time=timespecDiff(&frame, &start);
-	//TODO: Write to file instead of 'cout'
-	cout<<"#"<<message<<" at "<<time<<"\n";
+	if(strcmp("Loading", message.c_str())==0){
+		previousMessage="Loading";
+		clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
+		double time=timespecDiff(&frame, &start);
+		//TODO: Write to file instead of 'cout'
+		cout<<"#"<<message<<" at "<<time<<"\n";
+	}
+
+	else if(){
+
+	}
+
 }
 
 double Util::returnFramesToRandomSeek(){
