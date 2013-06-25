@@ -148,6 +148,10 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       pending_repaint_(false),
       pending_size_change_(false),
       video_frame_provider_client_(NULL) {
+
+  //Seed clock for random number generator
+  srand(clock());
+
   media_log_->AddEvent(
       media_log_->CreateEvent(media::MediaLogEvent::WEBMEDIAPLAYER_CREATED));
 
@@ -1271,6 +1275,11 @@ void WebMediaPlayerImpl::FrameReady(
 
   frame_count++;
   Util::log("FrameReady");
+
+  if(fmod(frame_count, Util::returnFramesToRandomSeek())==0 && Util::randomSeek()==true){
+     double seekTime=fmod(rand(), maxTimeSeekable());
+     seek(seekTime);
+  }
 
   if (pending_repaint_)
     return;
