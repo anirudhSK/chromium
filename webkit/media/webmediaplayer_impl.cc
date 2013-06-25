@@ -51,6 +51,7 @@
 #include "webkit/media/webmediasourceclient_impl.h"
 #include "webkit/plugins/ppapi/ppapi_webplugin_impl.h"
 #include "webkit/renderer/compositor_bindings/web_layer_impl.h"
+#include "util.h"
 
 using WebKit::WebCanvas;
 using WebKit::WebMediaPlayer;
@@ -1254,6 +1255,8 @@ void WebMediaPlayerImpl::OnDurationChange() {
   GetClient()->durationChanged();
 }
 
+double frame_count=0;
+
 void WebMediaPlayerImpl::FrameReady(
     const scoped_refptr<media::VideoFrame>& frame) {
   base::AutoLock auto_lock(lock_);
@@ -1265,6 +1268,9 @@ void WebMediaPlayerImpl::FrameReady(
   }
 
   current_frame_ = frame;
+
+  frame_count++;
+  Util::log("FrameReady");
 
   if (pending_repaint_)
     return;
