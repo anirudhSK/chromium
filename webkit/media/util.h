@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <fstream>
 
 using namespace std;
 
@@ -25,6 +26,8 @@ private:
 public:
 	static void init();
 	static void log(string message);
+	static double returnFramesToRandomSeek();
+	static bool randomSeek();
 };
 
 #endif /* UTIL_H_ */
