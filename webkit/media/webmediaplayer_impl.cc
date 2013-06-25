@@ -149,6 +149,8 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       pending_size_change_(false),
       video_frame_provider_client_(NULL) {
 
+	frame_count=0;
+
   //Seed clock for random number generator
   srand(clock());
 
@@ -1258,8 +1260,6 @@ void WebMediaPlayerImpl::OnDurationChange() {
 
   GetClient()->durationChanged();
 }
-
-double frame_count=0;
 
 void WebMediaPlayerImpl::FrameReady(
     const scoped_refptr<media::VideoFrame>& frame) {
