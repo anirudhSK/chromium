@@ -17,17 +17,24 @@
 using namespace std;
 
 //TODO: Make these variables private
-struct timespec start, frame;
+
+//Variables for random seek
 double numFramesRandomSeek;
 bool seek;
 
+//Variables for stall detection
 string previousMessage;
 double previousMessageTime;
-
 double frame_count;
 
+//Variables for timing
+struct timespec start;
+struct timespec frame;
+
+//Variables for buffer detection
+double fps;
+
 void Util::init(){
-	//Init private data members
 	numFramesRandomSeek=100;
 	seek=false;
 	frame_count=0;
@@ -53,6 +60,7 @@ void Util::log(string message){
 		double time=timespecDiff(&frame, &start);
 
 		cout<<"#Loading Time: "<<time-previousMessageTime<<" ms\n";
+		cout.flush();
 
 		previousMessage="FrameReady";
 		previousMessageTime=time;
@@ -67,11 +75,19 @@ void Util::log(string message){
 
 		if(stall>60){
 			cout<<"#Stall of "<<stall<<" ms detected between Frame "<<frame_count<<" and "<<frame_count+1<<"\n";
+			cout.flush();
 		}
 
 		previousMessage="FrameReady";
 		previousMessageTime=time;
 		frame_count++;
+	}
+
+	else{
+		clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
+		double time=timespecDiff(&frame, &start);
+
+		cout<<"#"<<message<<" at "<<time<<"\n";
 	}
 }
 
@@ -90,4 +106,8 @@ double Util::timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p){
 	double d = static_cast<double>(nano);
 	d=d/1000000; //Convert to milliseconds
 	return d;
+}
+
+double Util::returnBufferedPositionInBytes(double pos, double bytesPerSecond){
+	return (pos/bytesPerSecond)*fps;
 }

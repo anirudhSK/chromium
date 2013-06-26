@@ -8,7 +8,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
-#include <string.h>
+#include <string>
 #include <iostream>
 #include <sys/time.h>
 #include <stdio.h>
@@ -29,6 +29,8 @@ public:
 	static void log(string message);
 	static double returnFramesToRandomSeek();
 	static bool randomSeek();
+
+	static double returnBufferedPositionInBytes(double pos, double bytesPerSecond);
 };
 
 #endif /* UTIL_H_ */

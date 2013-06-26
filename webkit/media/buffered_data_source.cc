@@ -9,8 +9,12 @@
 #include "base/message_loop_proxy.h"
 #include "media/base/media_log.h"
 #include "net/base/net_errors.h"
+#include <iostream>
+
+#include "util.h"
 
 using WebKit::WebFrame;
+using namespace std;
 
 namespace {
 
@@ -210,10 +214,15 @@ void BufferedDataSource::SetPlaybackRate(float playback_rate) {
       &BufferedDataSource::SetPlaybackRateTask, weak_this_, playback_rate));
 }
 
+double byterate=0;
+
 void BufferedDataSource::SetBitrate(int bitrate) {
+	byterate=bitrate/8;
   render_loop_->PostTask(FROM_HERE, base::Bind(
       &BufferedDataSource::SetBitrateTask, weak_this_, bitrate));
 }
+
+uint64 totalSize=0;
 
 void BufferedDataSource::Read(
     int64 position, int size, uint8* data,
@@ -222,6 +231,16 @@ void BufferedDataSource::Read(
   DCHECK(!read_cb.is_null());
 
   {
+	  totalSize=totalSize+size;
+
+	  //double buffered=Util::returnBufferedPositionInBytes(totalSize, byterate);
+
+	  stringstream sstm;
+	  sstm << "Buffered " << totalSize;
+	  string result = sstm.str();
+
+	  Util::log(result);
+
     base::AutoLock auto_lock(lock_);
     DCHECK(!read_op_);
 

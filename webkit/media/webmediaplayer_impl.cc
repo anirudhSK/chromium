@@ -469,7 +469,6 @@ double WebMediaPlayerImpl::currentTime() const {
 
 int WebMediaPlayerImpl::dataRate() const {
   DCHECK(main_loop_->BelongsToCurrentThread());
-
   // TODO(hclam): Add this method call if pipeline has it in the interface.
   return 0;
 }
@@ -937,7 +936,6 @@ void WebMediaPlayerImpl::OnPipelineError(PipelineStatus error) {
 void WebMediaPlayerImpl::OnPipelineBufferingState(
     media::Pipeline::BufferingState buffering_state) {
   DVLOG(1) << "OnPipelineBufferingState(" << buffering_state << ")";
-
   switch (buffering_state) {
     case media::Pipeline::kHaveMetadata:
       SetReadyState(WebMediaPlayer::ReadyStateHaveMetadata);
@@ -1273,9 +1271,6 @@ void WebMediaPlayerImpl::FrameReady(
 
   current_frame_ = frame;
 
-  frame_count++;
-  Util::log("FrameReady");
-
   if(fmod(frame_count, Util::returnFramesToRandomSeek())==0 && Util::randomSeek()==true){
      double seekTime=fmod(rand(), maxTimeSeekable());
      seek(seekTime);
@@ -1287,6 +1282,16 @@ void WebMediaPlayerImpl::FrameReady(
   pending_repaint_ = true;
   main_loop_->PostTask(FROM_HERE, base::Bind(
       &WebMediaPlayerImpl::Repaint, AsWeakPtr()));
+
+  uint64 decodedByte = videoDecodedByteCount();
+
+  stringstream sstm;
+  sstm << "Decoded " << decodedByte;
+  string result = sstm.str();
+
+  Util::log(result);
+
+    //Util::log("FrameReady");
 }
 
 }  // namespace webkit_media
