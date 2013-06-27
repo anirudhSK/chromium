@@ -29,8 +29,6 @@ public:
 	static void log(string message);
 	static double returnFramesToRandomSeek();
 	static bool randomSeek();
-
-	static double returnBufferedPositionInBytes(double pos, double bytesPerSecond);
 };
 
 #endif /* UTIL_H_ */

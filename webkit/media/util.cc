@@ -107,7 +107,3 @@ double Util::timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p){
 	d=d/1000000; //Convert to milliseconds
 	return d;
 }
-
-double Util::returnBufferedPositionInBytes(double pos, double bytesPerSecond){
-	return (pos/bytesPerSecond)*fps;
-}

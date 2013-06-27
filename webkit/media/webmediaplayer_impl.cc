@@ -1291,7 +1291,7 @@ void WebMediaPlayerImpl::FrameReady(
 
   Util::log(result);
 
-    //Util::log("FrameReady");
+    Util::log("FrameReady");
 }
 
 }  // namespace webkit_media

@@ -233,8 +233,6 @@ void BufferedDataSource::Read(
   {
 	  totalSize=totalSize+size;
 
-	  //double buffered=Util::returnBufferedPositionInBytes(totalSize, byterate);
-
 	  stringstream sstm;
 	  sstm << "Buffered " << totalSize;
 	  string result = sstm.str();
