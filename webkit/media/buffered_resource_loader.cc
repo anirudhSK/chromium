@@ -562,6 +562,23 @@ void BufferedResourceLoader::UpdateDeferStrategy(DeferStrategy strategy) {
   if (!might_be_reused_from_cache_in_future_ && strategy == kNeverDefer)
     strategy = kCapacityDefer;
   defer_strategy_ = strategy;
+
+  // kNeverDefer - Aggresively buffer; never defer loading while paused.
+  // kReadThenDefer - Request only enough data to fulfill read requests.
+  // kCapacityDefer - Try to keep amount of buffered data at capacity.
+
+  string strat;
+  if(defer_strategy_==kNeverDefer){
+	  cout<<"Defer Strategy: Aggressively buffer\n";
+  }
+  else if(defer_strategy_==kReadThenDefer){
+	  cout<<"Defer Strategy: Request only enough data to fulfill read requests\n";
+  }
+
+  else{
+	  cout<<"Defer Strategy: Try to keep amount of buffered data at capacity\n";
+  }
+
   UpdateDeferBehavior();
 }
 
