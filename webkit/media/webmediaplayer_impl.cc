@@ -1283,15 +1283,14 @@ void WebMediaPlayerImpl::FrameReady(
   main_loop_->PostTask(FROM_HERE, base::Bind(
       &WebMediaPlayerImpl::Repaint, AsWeakPtr()));
 
+  frame_count++;
+
   uint64 decodedByte = videoDecodedByteCount();
 
-  stringstream sstm;
-  sstm << "Decoded " << decodedByte;
-  string result = sstm.str();
-
-  Util::log(result);
+  Util::log("Decoded", decodedByte);
 
     Util::log("FrameReady");
+    Util::updateFrameCount(frame_count);
 }
 
 }  // namespace webkit_media

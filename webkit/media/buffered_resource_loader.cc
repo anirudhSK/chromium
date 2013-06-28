@@ -19,6 +19,7 @@
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebKit.h"
 #include "third_party/WebKit/Source/WebKit/chromium/public/WebURLLoaderOptions.h"
 #include "webkit/media/cache_util.h"
+#include "util.h"
 
 using WebKit::WebFrame;
 using WebKit::WebString;
@@ -58,6 +59,8 @@ static const int kForwardWaitThreshold = 2 * kMegabyte;
 static void ComputeTargetBufferWindow(float playback_rate, int bitrate,
                                       int* out_backward_capacity,
                                       int* out_forward_capacity) {
+
+
   static const int kDefaultBitrate = 200 * 1024 * 8;  // 200 Kbps.
   static const int kMaxBitrate = 20 * kMegabyte * 8;  // 20 Mbps.
   static const float kMaxPlaybackRate = 25.0;
@@ -598,8 +601,9 @@ void BufferedResourceLoader::UpdateBufferWindow() {
 void BufferedResourceLoader::UpdateDeferBehavior() {
   if (!active_loader_)
     return;
-
   SetDeferred(ShouldDefer());
+  //Util::log("BufferedResourceLoader::UpdateDeferedBahaviour");
+
 }
 
 void BufferedResourceLoader::SetDeferred(bool deferred) {
@@ -628,6 +632,8 @@ bool BufferedResourceLoader::ShouldDefer() const {
 }
 
 bool BufferedResourceLoader::CanFulfillRead() const {
+	//Util::log("BufferedResourceLoader::CanFulfilRead");
+
   // If we are reading too far in the backward direction.
   if (first_offset_ < 0 && (first_offset_ + buffer_.backward_bytes()) < 0)
     return false;
@@ -650,6 +656,8 @@ bool BufferedResourceLoader::CanFulfillRead() const {
 }
 
 bool BufferedResourceLoader::WillFulfillRead() const {
+	//Util::log("BufferedResourceLoader::WillFulfilRead");
+
   // Trying to read too far behind.
   if (first_offset_ < 0 && (first_offset_ + buffer_.backward_bytes()) < 0)
     return false;

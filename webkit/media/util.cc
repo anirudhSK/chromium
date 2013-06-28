@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <fstream>
 #include "util.h"
+#include "../../media/base/seekable_buffer.h"
 
 using namespace std;
 
@@ -25,7 +26,6 @@ bool seek;
 //Variables for stall detection
 string previousMessage;
 double previousMessageTime;
-double frame_count;
 
 //Variables for timing
 struct timespec start;
@@ -34,11 +34,19 @@ struct timespec frame;
 //Variables for buffer detection
 double fps;
 
+//Variables for graph generation
+int64_t decodedBytes;
+int64_t bufferPos;
+int64_t frame_count;
+
 void Util::init(){
 	numFramesRandomSeek=100;
 	seek=false;
 	frame_count=0;
 	previousMessage="";
+
+	decodedBytes=0;
+	bufferPos=0;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &start);
 }
@@ -80,7 +88,6 @@ void Util::log(string message){
 
 		previousMessage="FrameReady";
 		previousMessageTime=time;
-		frame_count++;
 	}
 
 	else{
@@ -89,6 +96,13 @@ void Util::log(string message){
 
 		cout<<"#"<<message<<" at "<<time<<"\n";
 	}
+}
+
+void Util::log(string message, int64_t value){
+	clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
+	double time=timespecDiff(&frame, &start);
+
+	cout<<"#"<<message<<" "<<value<<" at "<<time<<"\n";
 }
 
 double Util::returnFramesToRandomSeek(){
@@ -106,4 +120,8 @@ double Util::timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p){
 	double d = static_cast<double>(nano);
 	d=d/1000000; //Convert to milliseconds
 	return d;
+}
+
+void updateFrameCount(int64_t count){
+	frame_count=count;
 }

@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <fstream>
+#include <sstream>
 
 using namespace std;
 
@@ -27,8 +28,10 @@ private:
 public:
 	static void init();
 	static void log(string message);
+	static void log(string message, int64_t value);
 	static double returnFramesToRandomSeek();
 	static bool randomSeek();
+	static void updateFrameCount(int64_t count);
 };
 
 #endif /* UTIL_H_ */

@@ -222,22 +222,16 @@ void BufferedDataSource::SetBitrate(int bitrate) {
       &BufferedDataSource::SetBitrateTask, weak_this_, bitrate));
 }
 
-uint64 totalSize=0;
-
 void BufferedDataSource::Read(
     int64 position, int size, uint8* data,
     const media::DataSource::ReadCB& read_cb) {
+
+	//Util::logBufferPosition(position);
+
   DVLOG(1) << "Read: " << position << " offset, " << size << " bytes";
   DCHECK(!read_cb.is_null());
 
   {
-	  totalSize=totalSize+size;
-
-	  stringstream sstm;
-	  sstm << "Buffered " << totalSize;
-	  string result = sstm.str();
-
-	  Util::log(result);
 
     base::AutoLock auto_lock(lock_);
     DCHECK(!read_op_);
@@ -525,6 +519,7 @@ void BufferedDataSource::ProgressCallback(int64 position) {
 }
 
 void BufferedDataSource::ReportOrQueueBufferedBytes(int64 start, int64 end) {
+
   if (host())
     host()->AddBufferedByteRange(start, end);
   else
