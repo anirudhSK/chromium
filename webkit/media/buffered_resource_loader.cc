@@ -619,7 +619,6 @@ void BufferedResourceLoader::UpdateDeferBehavior() {
   if (!active_loader_)
     return;
   SetDeferred(ShouldDefer());
-  //Util::log("BufferedResourceLoader::UpdateDeferedBahaviour");
 
 }
 
@@ -649,7 +648,6 @@ bool BufferedResourceLoader::ShouldDefer() const {
 }
 
 bool BufferedResourceLoader::CanFulfillRead() const {
-	//Util::log("BufferedResourceLoader::CanFulfilRead");
 
   // If we are reading too far in the backward direction.
   if (first_offset_ < 0 && (first_offset_ + buffer_.backward_bytes()) < 0)
@@ -673,7 +671,6 @@ bool BufferedResourceLoader::CanFulfillRead() const {
 }
 
 bool BufferedResourceLoader::WillFulfillRead() const {
-	//Util::log("BufferedResourceLoader::WillFulfilRead");
 
   // Trying to read too far behind.
   if (first_offset_ < 0 && (first_offset_ + buffer_.backward_bytes()) < 0)
