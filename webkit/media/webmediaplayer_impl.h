@@ -214,7 +214,7 @@ class WebMediaPlayerImpl
 
  private:
   //Counts the number of video frames from the start
-  double frame_count;
+  int64_t frame_count;
 
   // Contains common logic used across the different types loading.
   void LoadSetup(const WebKit::WebURL& url);

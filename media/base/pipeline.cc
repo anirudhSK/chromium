@@ -120,6 +120,7 @@ float Pipeline::GetPlaybackRate() const {
 }
 
 void Pipeline::SetPlaybackRate(float playback_rate) {
+
   if (playback_rate < 0.0f)
     return;
 

@@ -88,6 +88,8 @@ void Util::log(string message){
 
 		previousMessage="FrameReady";
 		previousMessageTime=time;
+
+		frame_count++;
 	}
 
 	else{
@@ -120,8 +122,4 @@ double Util::timespecDiff(struct timespec *timeA_p, struct timespec *timeB_p){
 	double d = static_cast<double>(nano);
 	d=d/1000000; //Convert to milliseconds
 	return d;
-}
-
-void updateFrameCount(int64_t count){
-	frame_count=count;
 }

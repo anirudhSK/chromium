@@ -226,7 +226,7 @@ void BufferedDataSource::Read(
     int64 position, int size, uint8* data,
     const media::DataSource::ReadCB& read_cb) {
 
-	//Util::logBufferPosition(position);
+	Util::log("Buffered", position);
 
   DVLOG(1) << "Read: " << position << " offset, " << size << " bytes";
   DCHECK(!read_cb.is_null());

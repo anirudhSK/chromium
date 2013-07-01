@@ -31,7 +31,6 @@ public:
 	static void log(string message, int64_t value);
 	static double returnFramesToRandomSeek();
 	static bool randomSeek();
-	static void updateFrameCount(int64_t count);
 };
 
 #endif /* UTIL_H_ */

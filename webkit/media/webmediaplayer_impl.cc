@@ -1290,7 +1290,6 @@ void WebMediaPlayerImpl::FrameReady(
   Util::log("Decoded", decodedByte);
 
     Util::log("FrameReady");
-    Util::updateFrameCount(frame_count);
 }
 
 }  // namespace webkit_media
