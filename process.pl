@@ -11,9 +11,13 @@ $forwardbufferedFilename=generateForwardBufferedFileName();
 $stallFilename=generateStallFileName();
 
 open(DECODED, ">${decodedFilename}");
+$|=1;
 open(BUFFERED, ">${totalbufferedFilename}");
+$|=1;
 open (STALLED, ">${stallFilename}");
+$|=1;
 open(FORWARDBUFFERED, ">${forwardbufferedFilename}");
+$|=1;
 
 print $decodedFilename, " ", $totalbufferedFilename, " ", $forwardbufferedFilename, "\n";
 
