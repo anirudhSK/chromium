@@ -3,7 +3,7 @@
 #These variables are user-editable
 
 iterations=100
-videoPlayTime=120 #in seconds
+videoPlayTime=600 #in seconds
 
 #These variables are NOT user-editable
 i=0
@@ -19,7 +19,7 @@ while [ $i -lt $iterations ]; do
 	sudo rm -rfv ~/.cache/google-chrome/Default/Cache/*
 	
 	#Start bandwidth throttling and start Chromium
-~/Desktop/src/out/Release/chrome http://10.0.0.2/start_sita.html | perl /home/devasia/Desktop/src/process.pl &
+~/Desktop/src/out/Release/chrome http://10.0.0.2/start_sita.html | perl /home/devasia/Desktop/src/process.pl
 
 	#Wait for video to play a while
 	sleep $videoPlayTime
