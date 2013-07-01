@@ -11,14 +11,11 @@ $forwardbufferedFilename=generateForwardBufferedFileName();
 $stallFilename=generateStallFileName();
 
 open(DECODED, ">${decodedFilename}");
-$|=1;
-open(BUFFERED, ">${bufferedFilename}");
-$|=1;
+open(BUFFERED, ">${totalbufferedFilename}");
 open (STALLED, ">${stallFilename}");
-$|=1;
 open(FORWARDBUFFERED, ">${forwardbufferedFilename}");
 
-print $decodedFilename, " ", $totalbufferedFilename, " ", $forwardbufferedFilename "\n";
+print $decodedFilename, " ", $totalbufferedFilename, " ", $forwardbufferedFilename, "\n";
 
 while($line=<STDIN>){
  @sp=split(" ", $line);
@@ -35,8 +32,8 @@ elsif($sp[0] eq "#TotalBuffered"){
   BUFFERED->autoflush(1);
  }
 
-elsif($sp[0] eq "#ForwardBuffered"){
- print FORWARDBUFFERED, $sp[3], " ", $sp[1], "\n";
+elsif($sp[0] eq "#ForwardBuffer"){
+ print FORWARDBUFFERED $sp[3], " ", $sp[1], "\n";
  FORWARDBUFFERED->autoflush(1);
 }
 
@@ -50,10 +47,6 @@ else{
  }
 }
 
-close(DECODED);
-close(BUFFERED);
-close(FORWARDBUFFERED);
-close (STALLED);
 
 sub generateDecodedFileName(){
  $i=0;
