@@ -3,7 +3,7 @@
 #These variables are user-editable
 
 iterations=100
-videoPlayTime=600 #in seconds
+videoPlayTime=6000 #in seconds
 
 #These variables are NOT user-editable
 i=0

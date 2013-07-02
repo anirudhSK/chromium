@@ -103,7 +103,7 @@ void Util::log(string message){
 void Util::log(string message, int64_t value){
 	clock_gettime(CLOCK_MONOTONIC_RAW, &frame);
 	double time=timespecDiff(&frame, &start);
-
+	cout<<time(NULL);
 	cout<<"#"<<message<<" "<<value<<" at "<<time<<"\n";
 }
 
