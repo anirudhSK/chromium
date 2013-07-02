@@ -1285,10 +1285,6 @@ void WebMediaPlayerImpl::FrameReady(
 
   frame_count++;
 
-  uint64 decodedByte = videoDecodedByteCount();
-
-  Util::log("Decoded", decodedByte);
-
     Util::log("FrameReady");
 }
 

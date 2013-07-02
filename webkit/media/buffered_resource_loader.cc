@@ -567,18 +567,6 @@ void BufferedResourceLoader::UpdateDeferStrategy(DeferStrategy strategy) {
   // kReadThenDefer - Request only enough data to fulfill read requests.
   // kCapacityDefer - Try to keep amount of buffered data at capacity.
 
-  string strat;
-  if(defer_strategy_==kNeverDefer){
-	  cout<<"Defer Strategy: Aggressively buffer\n";
-  }
-  else if(defer_strategy_==kReadThenDefer){
-	  cout<<"Defer Strategy: Request only enough data to fulfill read requests\n";
-  }
-
-  else{
-	  cout<<"Defer Strategy: Try to keep amount of buffered data at capacity\n";
-  }
-
   UpdateDeferBehavior();
 }
 
