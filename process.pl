@@ -36,9 +36,10 @@ elsif($sp[0] eq "#TotalBuffered"){
   BUFFERED->autoflush(1);
  }
 
-elsif($sp[0] eq "#ForwardBuffer"){
+elsif($sp[0] eq "#SetBitRate"){
  print FORWARDBUFFERED $sp[3], " ", $sp[1], "\n";
  FORWARDBUFFERED->autoflush(1);
+ print "BitRate: ", $sp[3];
 }
 
 elsif($sp[0] eq "#Stall" || $sp[0] eq "#Loading"){

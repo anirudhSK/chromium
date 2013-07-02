@@ -226,7 +226,7 @@ void BufferedDataSource::Read(
     int64 position, int size, uint8* data,
     const media::DataSource::ReadCB& read_cb) {
 
-	//Util::log("TotalBuffered", position);
+	Util::log("Bitrate", bitrate_);
 
   DVLOG(1) << "Read: " << position << " offset, " << size << " bytes";
   DCHECK(!read_cb.is_null());
@@ -320,7 +320,6 @@ void BufferedDataSource::SetPlaybackRateTask(float playback_rate) {
 }
 
 void BufferedDataSource::SetBitrateTask(int bitrate) {
-	Util::log("SetBitRate", bitrate);
   DCHECK(render_loop_->BelongsToCurrentThread());
   DCHECK(loader_.get());
 

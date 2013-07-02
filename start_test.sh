@@ -3,12 +3,10 @@
 #These variables are user-editable
 
 iterations=100
-videoPlayTime=20 #in seconds
+videoPlayTime=30 #in seconds
 
 #These variables are NOT user-editable
 i=0
-
-while [ $i -lt $iterations ]; do
 
 	#Delete all Chromium cache files
 	sudo rm -rfv ~/.cache/chromium/Default/Media\ Cache/*
@@ -19,21 +17,16 @@ while [ $i -lt $iterations ]; do
 	sudo rm -rfv ~/.cache/google-chrome/Default/Cache/*
 	
 	#Start bandwidth throttling
-	sudo ipfw pipe 2 config bw 8Mbit/s
+	sudo ipfw pipe 2 config bw 160Kbit/s
 
 	#Start Chromium
-	~/Desktop/src/out/Release/chrome
+	trickle -d 300 -u 1000 ~/Desktop/src/out/Release/chrome http://dash-mse-test.appspot.com/dash-player.html 
 
 	#Wait for video to play a while
         sleep $videoPlayTime
-	
+
+	#echo "Changed bandwidth throttling";	
 	#Change bandwidth throttling
-	sudo ipfw pipe 2 config bw 1Mbit/s
+	#sudo ipfw pipe 2 config bw 1Mbit/s
 	
-	#Kill chromium
-	sudo killall chrome
-
-	#Increment counter 
 	let i=i+1;
-
-done
