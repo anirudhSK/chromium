@@ -1570,6 +1570,22 @@ bool QuicFramer::ProcessQuicCongestionFeedbackFrame(
       tcp->receive_window = static_cast<QuicByteCount>(receive_window) << 4;
       break;
     }
+    case kMyTCP: {
+      CongestionFeedbackMessageMyTCP* my_tcp = &frame->my_tcp;
+      if (!reader_->ReadUInt16(&my_tcp->accumulated_number_of_lost_packets)) {
+        set_detailed_error(
+            "Unable to read accumulated number of lost packets.");
+        return false;
+      }
+      uint16 receive_window = 0;
+      if (!reader_->ReadUInt16(&receive_window)) {
+        set_detailed_error("Unable to read receive window.");
+        return false;
+      }
+      // Simple bit packing, don't send the 4 least significant bits.
+      my_tcp->receive_window = static_cast<QuicByteCount>(receive_window) << 4;
+      break;
+    }
     default:
       set_detailed_error("Illegal congestion feedback type.");
       DLOG(WARNING) << "Illegal congestion feedback type: "
@@ -1903,6 +1919,9 @@ size_t QuicFramer::ComputeFrameLength(
             len += 2;  // Accumulated number of lost packets.
           }
           len += 2;  // Receive window.
+          break;
+        case kMyTCP:
+          len += 4;
           break;
         default:
           set_detailed_error("Illegal feedback type.");
@@ -2277,6 +2296,19 @@ bool QuicFramer::AppendCongestionFeedbackFrame(
         if (!writer->WriteUInt16(0)) {
           return false;
         }
+      }
+      if (!writer->WriteUInt16(receive_window)) {
+        return false;
+      }
+      break;
+    }
+    case kMyTCP: {
+      const CongestionFeedbackMessageMyTCP& my_tcp = frame.my_tcp;
+      DCHECK_LE(my_tcp.receive_window, 1u << 20);
+      // Simple bit packing, don't send the 4 least significant bits.
+      uint16 receive_window = static_cast<uint16>(my_tcp.receive_window >> 4);
+      if (!writer->WriteUInt16(my_tcp.accumulated_number_of_lost_packets)) {
+        return false;
       }
       if (!writer->WriteUInt16(receive_window)) {
         return false;

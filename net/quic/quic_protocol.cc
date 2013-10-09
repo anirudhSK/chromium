@@ -509,6 +509,13 @@ ostream& operator<<(ostream& os,
       os << " receive_window: " << tcp.receive_window;
       break;
     }
+    case kMyTCP: {
+          const CongestionFeedbackMessageMyTCP& my_tcp = congestion_frame.my_tcp;
+          os << " accumulated_number_of_lost_packets: "
+             << congestion_frame.my_tcp.accumulated_number_of_lost_packets;
+          os << " receive_window: " << my_tcp.receive_window;
+          break;
+        }
   }
   return os;
 }

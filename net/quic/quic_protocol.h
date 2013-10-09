@@ -668,6 +668,7 @@ enum CongestionFeedbackType {
   kTCP,  // Used to mimic TCP.
   kInterArrival,  // Use additional inter arrival information.
   kFixRate,  // Provided for testing.
+  kMyTCP,
 };
 
 struct NET_EXPORT_PRIVATE CongestionFeedbackMessageTCP {
@@ -690,6 +691,11 @@ struct NET_EXPORT_PRIVATE CongestionFeedbackMessageFixRate {
   QuicBandwidth bitrate;
 };
 
+struct NET_EXPORT_PRIVATE CongestionFeedbackMessageMyTCP {
+  uint16 accumulated_number_of_lost_packets;
+  QuicByteCount receive_window;
+};
+
 struct NET_EXPORT_PRIVATE QuicCongestionFeedbackFrame {
   QuicCongestionFeedbackFrame();
   ~QuicCongestionFeedbackFrame();
@@ -703,6 +709,7 @@ struct NET_EXPORT_PRIVATE QuicCongestionFeedbackFrame {
   CongestionFeedbackMessageTCP tcp;
   CongestionFeedbackMessageInterArrival inter_arrival;
   CongestionFeedbackMessageFixRate fix_rate;
+  CongestionFeedbackMessageMyTCP my_tcp;
 };
 
 struct NET_EXPORT_PRIVATE QuicRstStreamFrame {

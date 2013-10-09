@@ -143,6 +143,12 @@ base::Value* NetLogQuicCongestionFeedbackFrameCallback(
       dict->SetString("type", "TCP");
       dict->SetInteger("receive_window", frame->tcp.receive_window);
       break;
+    case kMyTCP:
+      dict->SetString("type", "MyTCP");
+      dict->SetInteger("accumulated_number_of_lost_packets",
+                       frame->my_tcp.accumulated_number_of_lost_packets);
+      dict->SetInteger("receive_window", frame->my_tcp.receive_window);
+      break;
   }
 
   return dict;

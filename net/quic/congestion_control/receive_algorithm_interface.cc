@@ -6,6 +6,7 @@
 
 #include "net/quic/congestion_control/fix_rate_receiver.h"
 #include "net/quic/congestion_control/inter_arrival_receiver.h"
+#include "net/quic/congestion_control/my_tcp_receiver.h"
 #include "net/quic/congestion_control/tcp_receiver.h"
 
 namespace net {
@@ -20,6 +21,8 @@ ReceiveAlgorithmInterface* ReceiveAlgorithmInterface::Create(
       return new InterArrivalReceiver();
     case kFixRate:
       return new FixRateReceiver();
+    case kMyTCP:
+      return new MyTcpReceiver();
   }
   return NULL;
 }
