@@ -12,8 +12,7 @@ then
 fi
 
 sudo tc -s qdisc ls dev lo
-sleep 1s
 
-$DIR/transfer.sh
+$DIR/transfer.sh page.html
 
 sudo tc qdisc del dev lo root

@@ -10,7 +10,7 @@ else
   GET_FILE=$1
 fi
 
-# -l for logging, anything else for no logging
+# --log for logging, anything else (--no-log) for no logging
 if [ "$2" = "--log" ]
 then
   SERVER_LOG_FILE=/tmp/server.log
@@ -21,7 +21,7 @@ else
   CLIENT_LOG_FILE=/dev/null
 fi
 
-# -r for Release, anything else for Debug
+# --release for Release, anything else (--debug) for Debug
 if [ "$3" = "--release" ]
 then
   BUILD=Release
@@ -35,14 +35,16 @@ time ./out/$BUILD/quic_client --port=6121 http://tmp-quic-server/$GET_FILE > $CL
 
 killall -q quic_client quic_server
 
+echo
 echo "GET_FILE:       " $GET_FILE
 echo "SERVER_LOG_FILE:" $SERVER_LOG_FILE
 echo "CLIENT_LOG_FILE:" $CLIENT_LOG_FILE
 echo "BUILD:          " $BUILD
+echo
 
 if [ $F_OPEN_LOGS -eq 1 ]
 then
   sleep 1s
-  vim /tmp/server.log /tmp/client.log
+  vim $SERVER_LOG_FILE $CLIENT_LOG_FILE
 fi
 
