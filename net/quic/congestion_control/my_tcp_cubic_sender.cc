@@ -12,6 +12,7 @@ const int64 kHybridStartLowWindow = 16;
 const QuicByteCount kMaxSegmentSize = kMaxPacketSize;
 const QuicByteCount kDefaultReceiveWindow = 64000;
 const int64 kInitialCongestionWindow = 10;
+const int64 kFixedCongestionWindow = 15;
 const int kMaxBurstLength = 3;
 const int kInitialRttMs = 60;  // At a typical RTT 60 ms.
 const float kAlpha = 0.125f;
@@ -151,9 +152,8 @@ QuicByteCount MyTcpCubicSender::AvailableSendWindow() {
 }
 
 QuicByteCount MyTcpCubicSender::SendWindow() {
-  // What's the current send window in bytes.
   return std::min(receive_window_,
-                  congestion_window_ * kMaxSegmentSize);
+                  kFixedCongestionWindow * kMaxSegmentSize);
 }
 
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
