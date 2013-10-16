@@ -12,7 +12,7 @@
 
 namespace net {
 
-const bool kUseReno = false;
+const bool kUseReno = true;
 
 class RttStats;
 

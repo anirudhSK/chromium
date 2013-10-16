@@ -89,9 +89,6 @@ void MyTcpCubicSender::OnIncomingLoss(QuicTime /*ack_receive_time*/) {
     slowstart_threshold_ = congestion_window_;
   }
 
-  // Double cwnd, fast loss recovery.
-  congestion_window_ = congestion_window_ << 1;
-
   // Sanity, make sure that we don't end up with an empty window.
   if (congestion_window_ == 0) {
     congestion_window_ = 1;
