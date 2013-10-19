@@ -40,6 +40,10 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   virtual void OnIncomingAck(QuicPacketSequenceNumber acked_sequence_number,
                              QuicByteCount acked_bytes,
                              QuicTime::Delta rtt) OVERRIDE;
+  virtual void OnIncomingAck(QuicPacketSequenceNumber acked_sequence_number,
+                             QuicByteCount acked_bytes,
+                             QuicTime ack_receive_time,
+                             QuicTime::Delta rtt) OVERRIDE;
   virtual void OnIncomingLoss(QuicTime ack_receive_time) OVERRIDE;
   virtual bool OnPacketSent(
       QuicTime sent_time,
@@ -111,6 +115,11 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   // Approximation of standard deviation, the error is roughly 1.25 times
   // larger than the standard deviation, for a normally distributed signal.
   QuicTime::Delta mean_deviation_;
+
+  // Sprout-EWMA state.
+  QuicBandwidth throughput_;
+  QuicTime last_update_time_;
+  QuicByteCount bytes_in_tick_;
 
   DISALLOW_COPY_AND_ASSIGN(MyTcpCubicSender);
 };

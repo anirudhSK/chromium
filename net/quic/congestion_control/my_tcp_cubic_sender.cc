@@ -12,13 +12,18 @@ const int64 kHybridStartLowWindow = 16;
 const QuicByteCount kMaxSegmentSize = kMaxPacketSize;
 const QuicByteCount kDefaultReceiveWindow = 64000;
 const int64 kInitialCongestionWindow = 10;
-const int64 kFixedCongestionWindow = 15;
 const int kMaxBurstLength = 3;
 const int kInitialRttMs = 60;  // At a typical RTT 60 ms.
 const float kAlpha = 0.125f;
 const float kOneMinusAlpha = (1 - kAlpha);
 const float kBeta = 0.25f;
 const float kOneMinusBeta = (1 - kBeta);
+// Sprout-EWMA constants.
+// TODO(somakrdas): Vary these and investigate their effect when loss, delay,
+// and bandwidth change.
+const int kUpdateInterval = 20;  // Tick > 30 ms.
+const int kSendInterval = 100;   // Avoid driving the drain duration > 100 ms.
+const float kEwmaGain = 0.3f;
 };  // namespace
 
 MyTcpCubicSender::MyTcpCubicSender(
@@ -39,7 +44,10 @@ MyTcpCubicSender::MyTcpCubicSender(
       max_tcp_congestion_window_(max_tcp_congestion_window),
       delay_min_(QuicTime::Delta::Zero()),
       smoothed_rtt_(QuicTime::Delta::Zero()),
-      mean_deviation_(QuicTime::Delta::Zero()) {
+      mean_deviation_(QuicTime::Delta::Zero()),
+      throughput_(QuicBandwidth::Zero()),
+      last_update_time_(QuicTime::Zero()),
+      bytes_in_tick_(0) {
   DLOG(INFO) << "Using the MyTCP sender";
 }
 
@@ -67,6 +75,12 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
 void MyTcpCubicSender::OnIncomingAck(
     QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
     QuicTime::Delta rtt) {
+  LOG(ERROR) << "This version of OnIncomingAck should not be called.";
+}
+
+void MyTcpCubicSender::OnIncomingAck(
+    QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
+    QuicTime ack_receive_time, QuicTime::Delta rtt) {
   DCHECK_GE(bytes_in_flight_, acked_bytes);
   bytes_in_flight_ -= acked_bytes;
   CongestionAvoidance(acked_sequence_number);
@@ -74,6 +88,42 @@ void MyTcpCubicSender::OnIncomingAck(
   if (end_sequence_number_ == acked_sequence_number) {
     DLOG(INFO) << "Start update end sequence number @" << acked_sequence_number;
     update_end_sequence_number_ = true;
+  }
+
+  // Sprout-EWMA logic.
+  bytes_in_tick_ += acked_bytes;
+  QuicTime::Delta tick_length = ack_receive_time.Subtract(last_update_time_);
+  // TODO(somakrdas): QUIC's delayed ACKs are grouped together. Handle them.
+  if (tick_length.ToMilliseconds() > kUpdateInterval) {
+    DLOG(INFO) << "Tick length = " << tick_length.ToMilliseconds() << " ms";
+    DLOG(INFO) << "Smoothed RTT = " << SmoothedRtt().ToMilliseconds() << " ms";
+    DLOG(INFO) << "Bytes in this tick = " << bytes_in_tick_ << " bytes";
+
+    // TODO(somakrdas): Should the denominator be kUpdateInterval instead of
+    // tick_length?
+    QuicBandwidth current_throughput =
+        QuicBandwidth::FromBytesAndTimeDelta(bytes_in_flight_, tick_length);
+    // We should use rtt (current measurement) instead of SmoothedRtt, but it
+    // seems to be broken and is always equal to infinity.
+    // TODO(somakrdas): Investigate this.
+    QuicBandwidth min_throughput =
+        QuicBandwidth::FromBytesAndTimeDelta(kMaxSegmentSize, SmoothedRtt());
+
+    throughput_ = throughput_.Scale(1 - kEwmaGain).Add(
+        current_throughput.Scale(kEwmaGain));
+    if (throughput_ < min_throughput) {
+      throughput_ = min_throughput;
+    }
+
+    DLOG(INFO) << "Current throughput = "
+        << current_throughput.ToKBytesPerSecond() << " kB/s";
+    DLOG(INFO) << "Minimum throughput = "
+        << min_throughput.ToKBytesPerSecond() << " kB/s";
+    DLOG(INFO) << "Average throughput = "
+        << throughput_.ToKBytesPerSecond() << " kB/s";
+
+    bytes_in_tick_ = 0;
+    last_update_time_ = ack_receive_time;
   }
 }
 
@@ -152,8 +202,16 @@ QuicByteCount MyTcpCubicSender::AvailableSendWindow() {
 }
 
 QuicByteCount MyTcpCubicSender::SendWindow() {
-  return std::min(receive_window_,
-                  kFixedCongestionWindow * kMaxSegmentSize);
+  QuicByteCount send_window;
+  if (throughput_.IsZero()) {
+    // TODO(somakrdas): How to initialize? Keep the initial cwnd for a few
+    // ticks before switching to the average throughput?
+    send_window = kInitialCongestionWindow * kMaxSegmentSize;
+  } else {
+    send_window = throughput_.ToBytesPerPeriod(
+        QuicTime::Delta::FromMilliseconds(kSendInterval));
+  }
+  return std::min(receive_window_, send_window);
 }
 
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
