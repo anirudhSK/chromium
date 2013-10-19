@@ -36,4 +36,12 @@ SendAlgorithmInterface* SendAlgorithmInterface::Create(
   return NULL;
 }
 
+void SendAlgorithmInterface::OnIncomingAck(
+    QuicPacketSequenceNumber acked_sequence_number,
+    QuicByteCount acked_bytes,
+    QuicTime /*ack_receive_time*/,
+    QuicTime::Delta rtt) {
+  OnIncomingAck(acked_sequence_number, acked_bytes, rtt);
+}
+
 }  // namespace net
