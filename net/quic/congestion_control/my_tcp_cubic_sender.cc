@@ -45,6 +45,7 @@ MyTcpCubicSender::MyTcpCubicSender(
       delay_min_(QuicTime::Delta::Zero()),
       smoothed_rtt_(QuicTime::Delta::Zero()),
       mean_deviation_(QuicTime::Delta::Zero()),
+      clock_(clock),
       throughput_(QuicBandwidth::Zero()),
       last_update_time_(QuicTime::Zero()),
       bytes_in_tick_(0) {
@@ -75,13 +76,9 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
 void MyTcpCubicSender::OnIncomingAck(
     QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
     QuicTime::Delta rtt) {
-  LOG(ERROR) << "This version of OnIncomingAck should not be called.";
-}
-
-void MyTcpCubicSender::OnIncomingAck(
-    QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
-    QuicTime ack_receive_time, QuicTime::Delta rtt) {
   DCHECK_GE(bytes_in_flight_, acked_bytes);
+  QuicTime ack_receive_time = clock_->ApproximateNow();
+
   bytes_in_flight_ -= acked_bytes;
   CongestionAvoidance(acked_sequence_number);
   AckAccounting(rtt);

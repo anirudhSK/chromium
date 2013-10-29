@@ -43,11 +43,6 @@ class NET_EXPORT_PRIVATE SendAlgorithmInterface {
   virtual void OnPacketAcked(QuicPacketSequenceNumber acked_sequence_number,
                              QuicByteCount acked_bytes) = 0;
 
-  virtual void OnIncomingAck(QuicPacketSequenceNumber acked_sequence_number,
-                             QuicByteCount acked_bytes,
-                             QuicTime ack_receive_time,
-                             QuicTime::Delta rtt);  // (Not pure virtual.)
-
   // Indicates a loss event of one packet. |sequence_number| is the
   // sequence number of the lost packet.
   virtual void OnPacketLost(QuicPacketSequenceNumber sequence_number,
