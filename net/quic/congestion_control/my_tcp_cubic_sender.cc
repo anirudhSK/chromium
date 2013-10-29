@@ -214,6 +214,14 @@ QuicByteCount MyTcpCubicSender::SendWindow() {
   return std::min(receive_window_, send_window);
 }
 
+QuicByteCount MyTcpCubicSender::GetCongestionWindow() {
+  return 0;
+}
+
+void MyTcpCubicSender::SetCongestionWindow(QuicByteCount window) {
+  return;
+}
+
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
   // TODO(pwestin): make a long term estimate, based on RTT and loss rate? or
   // instantaneous estimate?

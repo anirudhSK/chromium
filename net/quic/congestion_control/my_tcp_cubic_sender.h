@@ -58,6 +58,8 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
       TransmissionType transmission_type,
       HasRetransmittableData has_retransmittable_data,
       IsHandshake handshake) OVERRIDE;
+  virtual QuicByteCount GetCongestionWindow() OVERRIDE;
+  virtual void SetCongestionWindow(QuicByteCount window) OVERRIDE;
   virtual QuicBandwidth BandwidthEstimate() OVERRIDE;
   virtual QuicTime::Delta SmoothedRtt() OVERRIDE;
   virtual QuicTime::Delta RetransmissionDelay() OVERRIDE;
