@@ -97,19 +97,21 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       last_update_time_ = time_received;
     }
 
-    /* TODO(somakrdas):
     bool force_update = last_send_time_.IsInitialized() && time_sent.Subtract(last_send_time_).ToMilliseconds() > 5;
-    DLOG(INFO) << "time since last packet = " << time_sent.Subtract(last_send_time_).ToMilliseconds() << " ms";
-    DLOG(INFO) << "time since last packet = " << time_received.Subtract(last_receive_time_).ToMilliseconds() << " ms";
-    DLOG(INFO) << "force_update = " << force_update; */
+    QuicTime::Delta tick_length = last_receive_time_.Subtract(last_update_time_);
+    if (!force_update) {
+      tick_length = time_received.Subtract(last_update_time_);
+      bytes_in_tick_ += bytes_sent;
+    } else {
+      DLOG(INFO) << "time since last packet sent = " << time_sent.Subtract(last_send_time_).ToMilliseconds() << " ms";
+      DLOG(INFO) << "time since last packet received = " << time_received.Subtract(last_receive_time_).ToMilliseconds() << " ms";
+    }
 
-    last_send_time_ = time_sent;
-    last_receive_time_ = time_received;
-
-    bytes_in_tick_ += bytes_sent;
-    QuicTime::Delta tick_length = time_received.Subtract(last_update_time_);
     // TODO(somakrdas): QUIC's delayed ACKs are grouped together. Handle them.
-    if (tick_length.ToMilliseconds() > kUpdateInterval) {
+    if (force_update || tick_length.ToMilliseconds() > kUpdateInterval) {
+      QuicTime::Delta min_delta = QuicTime::Delta::FromMilliseconds(1);
+      if (tick_length < min_delta) tick_length = min_delta;
+
       DLOG(INFO) << "Tick length = " << tick_length.ToMilliseconds() << " ms";
       DLOG(INFO) << "Smoothed RTT = " << SmoothedRtt().ToMilliseconds() << " ms";
       DLOG(INFO) << "Bytes in this tick = " << bytes_in_tick_ << " bytes";
@@ -138,6 +140,9 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       bytes_in_tick_ = 0;
       last_update_time_ = time_received;
     }
+
+    last_send_time_ = time_sent;
+    last_receive_time_ = time_received;
   }
 }
 
