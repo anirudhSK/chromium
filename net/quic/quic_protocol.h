@@ -692,8 +692,13 @@ struct NET_EXPORT_PRIVATE CongestionFeedbackMessageFixRate {
 };
 
 struct NET_EXPORT_PRIVATE CongestionFeedbackMessageMyTCP {
+  CongestionFeedbackMessageMyTCP();
+  ~CongestionFeedbackMessageMyTCP();
   uint16 accumulated_number_of_lost_packets;
   QuicByteCount receive_window;
+  // The set of received packets since the last feedback was sent, along with
+  // their arrival times.
+  TimeMap received_packet_times;
 };
 
 struct NET_EXPORT_PRIVATE QuicCongestionFeedbackFrame {

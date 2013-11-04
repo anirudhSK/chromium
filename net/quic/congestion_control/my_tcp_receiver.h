@@ -34,6 +34,10 @@ class NET_EXPORT_PRIVATE MyTcpReceiver : public ReceiveAlgorithmInterface {
   int accumulated_number_of_recoverd_lost_packets_;
   QuicByteCount receive_window_;
 
+  // The set of received packets since the last feedback was sent, along with
+  // their arrival times.
+  TimeMap received_packet_times_;
+
   DISALLOW_COPY_AND_ASSIGN(MyTcpReceiver);
 };
 

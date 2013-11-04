@@ -72,6 +72,8 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     }
   }
   receive_window_ = feedback.my_tcp.receive_window;
+
+  DLOG(INFO) << "Received feedback = " << feedback;
 }
 
 void MyTcpCubicSender::OnIncomingAck(

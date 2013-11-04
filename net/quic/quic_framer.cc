@@ -1584,6 +1584,51 @@ bool QuicFramer::ProcessQuicCongestionFeedbackFrame(
       }
       // Simple bit packing, don't send the 4 least significant bits.
       my_tcp->receive_window = static_cast<QuicByteCount>(receive_window) << 4;
+      uint8 num_received_packets;
+      if (!reader_->ReadBytes(&num_received_packets, 1)) {
+        set_detailed_error("Unable to read num received packets.");
+        return false;
+      }
+
+      if (num_received_packets > 0u) {
+        uint64 smallest_received;
+        if (!ProcessPacketSequenceNumber(PACKET_6BYTE_SEQUENCE_NUMBER,
+                                         &smallest_received)) {
+          set_detailed_error("Unable to read smallest received.");
+          return false;
+        }
+
+        uint64 time_received_us;
+        if (!reader_->ReadUInt64(&time_received_us)) {
+          set_detailed_error("Unable to read time received.");
+          return false;
+        }
+        QuicTime time_received = creation_time_.Add(
+            QuicTime::Delta::FromMicroseconds(time_received_us));
+
+        my_tcp->received_packet_times.insert(
+            make_pair(smallest_received, time_received));
+
+        for (int i = 0; i < num_received_packets - 1; ++i) {
+          uint16 sequence_delta;
+          if (!reader_->ReadUInt16(&sequence_delta)) {
+            set_detailed_error(
+                "Unable to read sequence delta in received packets.");
+            return false;
+          }
+
+          int32 time_delta_us;
+          if (!reader_->ReadBytes(&time_delta_us, sizeof(time_delta_us))) {
+            set_detailed_error(
+                "Unable to read time delta in received packets.");
+            return false;
+          }
+          QuicPacketSequenceNumber packet = smallest_received + sequence_delta;
+          my_tcp->received_packet_times.insert(
+                        make_pair(packet, time_received.Add(
+                  QuicTime::Delta::FromMicroseconds(time_delta_us))));
+        }
+      }
       break;
     }
     default:
@@ -1920,9 +1965,20 @@ size_t QuicFramer::ComputeFrameLength(
           }
           len += 2;  // Receive window.
           break;
-        case kMyTCP:
+        case kMyTCP: {
+          const CongestionFeedbackMessageMyTCP& my_tcp =
+              congestion_feedback.my_tcp;
           len += 4;
+          len += 1;  // Number received packets.
+          if (my_tcp.received_packet_times.size() > 0) {
+            len += PACKET_6BYTE_SEQUENCE_NUMBER;  // Smallest received.
+            len += 8;  // Time.
+            // 2 bytes per sequence number delta plus 4 bytes per delta time.
+            len += PACKET_6BYTE_SEQUENCE_NUMBER *
+                (my_tcp.received_packet_times.size() - 1);
+          }
           break;
+        }
         default:
           set_detailed_error("Illegal feedback type.");
           DVLOG(1) << "Illegal feedback type: " << congestion_feedback.type;
@@ -2312,6 +2368,51 @@ bool QuicFramer::AppendCongestionFeedbackFrame(
       }
       if (!writer->WriteUInt16(receive_window)) {
         return false;
+      }
+      DCHECK_GE(numeric_limits<uint8>::max(),
+                my_tcp.received_packet_times.size());
+      if (my_tcp.received_packet_times.size() >
+          numeric_limits<uint8>::max()) {
+        return false;
+      }
+      // TODO(ianswett): Make num_received_packets a varint.
+      uint8 num_received_packets =
+          my_tcp.received_packet_times.size();
+      if (!writer->WriteBytes(&num_received_packets, 1)) {
+        return false;
+      }
+      if (num_received_packets > 0) {
+        TimeMap::const_iterator it =
+            my_tcp.received_packet_times.begin();
+
+        QuicPacketSequenceNumber lowest_sequence = it->first;
+        if (!AppendPacketSequenceNumber(PACKET_6BYTE_SEQUENCE_NUMBER,
+                                        lowest_sequence, writer)) {
+          return false;
+        }
+
+        QuicTime lowest_time = it->second;
+        if (!writer->WriteUInt64(
+                lowest_time.Subtract(creation_time_).ToMicroseconds())) {
+          return false;
+        }
+
+        for (++it; it != my_tcp.received_packet_times.end(); ++it) {
+          QuicPacketSequenceNumber sequence_delta = it->first - lowest_sequence;
+          DCHECK_GE(numeric_limits<uint16>::max(), sequence_delta);
+          if (sequence_delta > numeric_limits<uint16>::max()) {
+            return false;
+          }
+          if (!writer->WriteUInt16(static_cast<uint16>(sequence_delta))) {
+            return false;
+          }
+
+          int32 time_delta_us =
+              it->second.Subtract(lowest_time).ToMicroseconds();
+          if (!writer->WriteBytes(&time_delta_us, sizeof(time_delta_us))) {
+            return false;
+          }
+        }
       }
       break;
     }

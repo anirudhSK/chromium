@@ -148,6 +148,15 @@ base::Value* NetLogQuicCongestionFeedbackFrameCallback(
       dict->SetInteger("accumulated_number_of_lost_packets",
                        frame->my_tcp.accumulated_number_of_lost_packets);
       dict->SetInteger("receive_window", frame->my_tcp.receive_window);
+      base::ListValue* received = new base::ListValue();
+      dict->Set("received_packets", received);
+      for (TimeMap::const_iterator it =
+               frame->my_tcp.received_packet_times.begin();
+           it != frame->my_tcp.received_packet_times.end(); ++it) {
+        std::string value = base::Uint64ToString(it->first) + "@" +
+            base::Uint64ToString(it->second.ToDebuggingValue());
+        received->AppendString(value);
+      }
       break;
   }
 

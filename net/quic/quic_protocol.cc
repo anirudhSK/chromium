@@ -510,12 +510,19 @@ ostream& operator<<(ostream& os,
       break;
     }
     case kMyTCP: {
-          const CongestionFeedbackMessageMyTCP& my_tcp = congestion_frame.my_tcp;
-          os << " accumulated_number_of_lost_packets: "
-             << congestion_frame.my_tcp.accumulated_number_of_lost_packets;
-          os << " receive_window: " << my_tcp.receive_window;
-          break;
-        }
+      const CongestionFeedbackMessageMyTCP& my_tcp = congestion_frame.my_tcp;
+      os << " accumulated_number_of_lost_packets: "
+         << congestion_frame.my_tcp.accumulated_number_of_lost_packets;
+      os << " receive_window: " << my_tcp.receive_window;
+      os << " received packets: [ ";
+      for (TimeMap::const_iterator it =
+               my_tcp.received_packet_times.begin();
+           it != my_tcp.received_packet_times.end(); ++it) {
+        os << it->first << "@" << it->second.ToDebuggingValue() << " ";
+      }
+      os << "]";
+      break;
+    }
   }
   return os;
 }
@@ -528,6 +535,12 @@ QuicGoAwayFrame::QuicGoAwayFrame()
     : error_code(QUIC_NO_ERROR),
       last_good_stream_id(0) {
 }
+
+CongestionFeedbackMessageMyTCP::
+CongestionFeedbackMessageMyTCP() {}
+
+CongestionFeedbackMessageMyTCP::
+~CongestionFeedbackMessageMyTCP() {}
 
 QuicGoAwayFrame::QuicGoAwayFrame(QuicErrorCode error_code,
                                  QuicStreamId last_good_stream_id,
