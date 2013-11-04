@@ -13,6 +13,6 @@ fi
 
 sudo tc -s qdisc ls dev lo
 
-$DIR/transfer.sh page.html
+$DIR/transfer.sh page.html --log
 
 sudo tc qdisc del dev lo root
