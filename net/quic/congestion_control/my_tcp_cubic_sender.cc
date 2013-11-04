@@ -49,7 +49,10 @@ MyTcpCubicSender::MyTcpCubicSender(
       throughput_(QuicBandwidth::FromKBytesPerSecond(
           kInitialCongestionWindow * kMaxSegmentSize / kSendInterval)),
       last_update_time_(QuicTime::Zero()),
+      last_send_time_(QuicTime::Zero()),
+      last_receive_time_(QuicTime::Zero()),
       bytes_in_tick_(0) {
+  // TODO(somakrdas): Check for unnecessary Sprout-EWMA state.
   DLOG(INFO) << "Using the MyTCP sender";
 }
 
@@ -59,7 +62,7 @@ MyTcpCubicSender::~MyTcpCubicSender() {
 void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     const QuicCongestionFeedbackFrame& feedback,
     QuicTime feedback_receive_time,
-    const SentPacketsMap& /*sent_packets*/) {
+    const SentPacketsMap& sent_packets) {
   if (last_received_accumulated_number_of_lost_packets_ !=
       feedback.my_tcp.accumulated_number_of_lost_packets) {
     int recovered_lost_packets =
@@ -74,60 +77,80 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
   receive_window_ = feedback.my_tcp.receive_window;
 
   DLOG(INFO) << "Received feedback = " << feedback;
+
+  for (TimeMap::const_iterator received_it =
+       feedback.my_tcp.received_packet_times.begin();
+       received_it != feedback.my_tcp.received_packet_times.end();
+       ++received_it) {
+    QuicPacketSequenceNumber sequence_number = received_it->first;
+    SentPacketsMap::const_iterator sent_it = sent_packets.find(sequence_number);
+    if (sent_it == sent_packets.end()) {
+      // Too old data; ignore and move forward.
+      continue;
+    }
+    QuicTime time_received = received_it->second;
+    QuicTime time_sent = sent_it->second->SendTimestamp();
+    QuicByteCount bytes_sent = sent_it->second->BytesSent();
+
+    // Sprout-EWMA logic.
+    if (!last_update_time_.IsInitialized()) {
+      last_update_time_ = time_received;
+    }
+
+    /* TODO(somakrdas):
+    bool force_update = last_send_time_.IsInitialized() && time_sent.Subtract(last_send_time_).ToMilliseconds() > 5;
+    DLOG(INFO) << "time since last packet = " << time_sent.Subtract(last_send_time_).ToMilliseconds() << " ms";
+    DLOG(INFO) << "time since last packet = " << time_received.Subtract(last_receive_time_).ToMilliseconds() << " ms";
+    DLOG(INFO) << "force_update = " << force_update; */
+
+    last_send_time_ = time_sent;
+    last_receive_time_ = time_received;
+
+    bytes_in_tick_ += bytes_sent;
+    QuicTime::Delta tick_length = time_received.Subtract(last_update_time_);
+    // TODO(somakrdas): QUIC's delayed ACKs are grouped together. Handle them.
+    if (tick_length.ToMilliseconds() > kUpdateInterval) {
+      DLOG(INFO) << "Tick length = " << tick_length.ToMilliseconds() << " ms";
+      DLOG(INFO) << "Smoothed RTT = " << SmoothedRtt().ToMilliseconds() << " ms";
+      DLOG(INFO) << "Bytes in this tick = " << bytes_in_tick_ << " bytes";
+
+      QuicBandwidth current_throughput =
+          QuicBandwidth::FromBytesAndTimeDelta(bytes_in_flight_, tick_length);
+      // We should use rtt (current measurement) instead of SmoothedRtt, but it
+      // seems to be broken and is always equal to infinity.
+      // TODO(somakrdas): Investigate this.
+      QuicBandwidth min_throughput =
+          QuicBandwidth::FromBytesAndTimeDelta(kMaxSegmentSize, SmoothedRtt());
+
+      throughput_ = throughput_.Scale(1 - kEwmaGain).Add(
+          current_throughput.Scale(kEwmaGain));
+      if (throughput_ < min_throughput) {
+        throughput_ = min_throughput;
+      }
+
+      DLOG(INFO) << "Current throughput = "
+          << current_throughput.ToKBytesPerSecond() << " kB/s";
+      DLOG(INFO) << "Minimum throughput = "
+          << min_throughput.ToKBytesPerSecond() << " kB/s";
+      DLOG(INFO) << "Average throughput = "
+          << throughput_.ToKBytesPerSecond() << " kB/s";
+
+      bytes_in_tick_ = 0;
+      last_update_time_ = time_received;
+    }
+  }
 }
 
 void MyTcpCubicSender::OnIncomingAck(
     QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
     QuicTime::Delta rtt) {
   DCHECK_GE(bytes_in_flight_, acked_bytes);
-  QuicTime ack_receive_time = clock_->Now();
-
   bytes_in_flight_ -= acked_bytes;
   CongestionAvoidance(acked_sequence_number);
   AckAccounting(rtt);
   if (end_sequence_number_ == acked_sequence_number) {
     DLOG(INFO) << "Start update end sequence number @" << acked_sequence_number;
     update_end_sequence_number_ = true;
-  }
-
-  // Sprout-EWMA logic.
-  if (!last_update_time_.IsInitialized()) {
-    last_update_time_ = ack_receive_time;
-  }
-
-  bytes_in_tick_ += acked_bytes;
-  QuicTime::Delta tick_length = ack_receive_time.Subtract(last_update_time_);
-  // TODO(somakrdas): QUIC's delayed ACKs are grouped together. Handle them.
-  if (tick_length.ToMilliseconds() > kUpdateInterval) {
-    DLOG(INFO) << "Tick length = " << tick_length.ToMilliseconds() << " ms";
-    DLOG(INFO) << "Smoothed RTT = " << SmoothedRtt().ToMilliseconds() << " ms";
-    DLOG(INFO) << "Bytes in this tick = " << bytes_in_tick_ << " bytes";
-
-    // TODO(somakrdas): Should the denominator be kUpdateInterval instead of
-    // tick_length?
-    QuicBandwidth current_throughput =
-        QuicBandwidth::FromBytesAndTimeDelta(bytes_in_flight_, tick_length);
-    // We should use rtt (current measurement) instead of SmoothedRtt, but it
-    // seems to be broken and is always equal to infinity.
-    // TODO(somakrdas): Investigate this.
-    QuicBandwidth min_throughput =
-        QuicBandwidth::FromBytesAndTimeDelta(kMaxSegmentSize, SmoothedRtt());
-
-    throughput_ = throughput_.Scale(1 - kEwmaGain).Add(
-        current_throughput.Scale(kEwmaGain));
-    if (throughput_ < min_throughput) {
-      throughput_ = min_throughput;
-    }
-
-    DLOG(INFO) << "Current throughput = "
-        << current_throughput.ToKBytesPerSecond() << " kB/s";
-    DLOG(INFO) << "Minimum throughput = "
-        << min_throughput.ToKBytesPerSecond() << " kB/s";
-    DLOG(INFO) << "Average throughput = "
-        << throughput_.ToKBytesPerSecond() << " kB/s";
-
-    bytes_in_tick_ = 0;
-    last_update_time_ = ack_receive_time;
   }
 }
 

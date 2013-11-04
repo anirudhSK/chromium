@@ -19,10 +19,14 @@ MyTcpReceiver::MyTcpReceiver()
 
 bool MyTcpReceiver::GenerateCongestionFeedback(
     QuicCongestionFeedbackFrame* feedback) {
-  /* if (received_packet_times_.size() <= 1) {
+  /*
+  // TODO(somakrdas): Not making this optimization yet.
+
+  if (received_packet_times_.size() <= 1) {
     // Don't waste resources by sending a feedback frame for only one packet.
     return false;
-  } */
+  }
+  */
 
   feedback->type = kMyTCP;
   feedback->my_tcp.accumulated_number_of_lost_packets =
@@ -49,19 +53,9 @@ void MyTcpReceiver::RecordIncomingPacket(QuicByteCount bytes,
   received_packet_times_.insert(std::make_pair(sequence_number, timestamp));
 
   if (received_packet_times_.size() > kMaxTimeMapSize) {
-    const QuicPacketSequenceNumber cutoff_sequence_number =
-        sequence_number - (kMaxTimeMapSize - 1);
-    TimeMap::iterator it = received_packet_times_.begin();
-    while (it != received_packet_times_.end()) {
-      if (it->first < cutoff_sequence_number) {
-        // Too old, older than the cutoff. Erase from the map.
-        TimeMap::iterator toErase = it;
-        ++it;
-        received_packet_times_.erase(toErase);
-      } else {
-        ++it;
-      }
-    }
+    TimeMap::iterator it = received_packet_times_.upper_bound(sequence_number -
+        static_cast<QuicPacketSequenceNumber>(kMaxTimeMapSize));
+    received_packet_times_.erase(received_packet_times_.begin(), it);
   }
 }
 
