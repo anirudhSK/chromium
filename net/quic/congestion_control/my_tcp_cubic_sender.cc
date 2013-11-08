@@ -23,7 +23,7 @@ const float kOneMinusBeta = (1 - kBeta);
 // and bandwidth change.
 const int kUpdateInterval = 20;  // Tick > 20 ms.
 const int kSendInterval = 100;   // Avoid driving the drain duration > 100 ms.
-const float kEwmaGain = 0.25f;
+const float kEwmaGain = 0.125f;
 };  // namespace
 
 MyTcpCubicSender::MyTcpCubicSender(
@@ -98,7 +98,7 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     }
 
     bool force_update = last_send_time_.IsInitialized() && time_sent.Subtract(last_send_time_).ToMilliseconds() > 5;
-    QuicTime::Delta tick_length = last_receive_time_.Subtract(last_update_time_);
+    QuicTime::Delta tick_length = QuicTime::Delta::FromMilliseconds(kUpdateInterval);
     if (!force_update) {
       tick_length = time_received.Subtract(last_update_time_);
       bytes_in_tick_ += bytes_sent;
@@ -107,7 +107,6 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       DLOG(INFO) << "time since last packet received = " << time_received.Subtract(last_receive_time_).ToMilliseconds() << " ms";
     }
 
-    // TODO(somakrdas): QUIC's delayed ACKs are grouped together. Handle them.
     if (force_update || tick_length.ToMilliseconds() > kUpdateInterval) {
       QuicTime::Delta min_delta = QuicTime::Delta::FromMilliseconds(1);
       if (tick_length < min_delta) tick_length = min_delta;
@@ -137,7 +136,7 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       DLOG(INFO) << "Average throughput = "
           << throughput_.ToKBytesPerSecond() << " kB/s";
 
-      bytes_in_tick_ = 0;
+      bytes_in_tick_ = force_update ? bytes_sent : 0;
       last_update_time_ = time_received;
     }
 
