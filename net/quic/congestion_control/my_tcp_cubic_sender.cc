@@ -116,7 +116,7 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       DLOG(INFO) << "Bytes in this tick = " << bytes_in_tick_ << " bytes";
 
       QuicBandwidth current_throughput =
-          QuicBandwidth::FromBytesAndTimeDelta(bytes_in_flight_, tick_length);
+          QuicBandwidth::FromBytesAndTimeDelta(bytes_in_tick_, tick_length);
       // We should use rtt (current measurement) instead of SmoothedRtt, but it
       // seems to be broken and is always equal to infinity.
       // TODO(somakrdas): Investigate this.
