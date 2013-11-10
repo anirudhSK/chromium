@@ -82,9 +82,6 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   // ACK counter for the Reno implementation.
   int64 congestion_window_count_;
 
-  // Receiver side advertised window.
-  QuicByteCount receive_window_;
-
   // Receiver side advertised packet loss.
   int last_received_accumulated_number_of_lost_packets_;
 

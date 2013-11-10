@@ -10,7 +10,6 @@ namespace {
 // Constants based on TCP defaults.
 const int64 kHybridStartLowWindow = 16;
 const QuicByteCount kMaxSegmentSize = kMaxPacketSize;
-const QuicByteCount kDefaultReceiveWindow = 64000;
 const int64 kInitialCongestionWindow = 10;
 const int kMaxBurstLength = 3;
 const int kInitialRttMs = 60;  // At a typical RTT 60 ms.
@@ -34,7 +33,6 @@ MyTcpCubicSender::MyTcpCubicSender(
       cubic_(clock),
       reno_(reno),
       congestion_window_count_(0),
-      receive_window_(kDefaultReceiveWindow),
       last_received_accumulated_number_of_lost_packets_(0),
       bytes_in_flight_(0),
       update_end_sequence_number_(true),
@@ -82,8 +80,6 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       OnIncomingLoss(feedback_receive_time);
     }
   }
-  receive_window_ = feedback.my_tcp.receive_window;
-
   DLOG(INFO) << "Received feedback = " << feedback;
 
   for (TimeMap::const_iterator received_it =
@@ -243,7 +239,7 @@ QuicByteCount MyTcpCubicSender::AvailableSendWindow() {
 QuicByteCount MyTcpCubicSender::SendWindow() {
   QuicByteCount send_window = throughput_.ToBytesPerPeriod(
       QuicTime::Delta::FromMilliseconds(kSendInterval));
-  return std::min(receive_window_, send_window);
+  return send_window;
 }
 
 QuicByteCount MyTcpCubicSender::GetCongestionWindow() {
