@@ -59,6 +59,14 @@ MyTcpCubicSender::MyTcpCubicSender(
 MyTcpCubicSender::~MyTcpCubicSender() {
 }
 
+void MyTcpCubicSender::SetFromConfig(const QuicConfig& config, bool is_server) {
+  if (is_server) {
+    throughput_ = QuicBandwidth::FromKBytesPerSecond(
+        config.server_initial_congestion_window() * kMaxSegmentSize /
+        kSendInterval);
+  }
+}
+
 void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     const QuicCongestionFeedbackFrame& feedback,
     QuicTime feedback_receive_time,
