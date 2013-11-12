@@ -80,6 +80,7 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   QuicBandwidth throughput_;
   QuicTime last_update_time_;
   QuicTime last_send_time_;
+  QuicTime last_receive_time_;
   QuicByteCount bytes_in_tick_;
 
   DISALLOW_COPY_AND_ASSIGN(MyTcpCubicSender);

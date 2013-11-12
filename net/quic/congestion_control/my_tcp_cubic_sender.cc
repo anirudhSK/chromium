@@ -15,6 +15,7 @@ const float kBeta = 0.25f;
 // Sprout-EWMA constants.
 const int kUpdateInterval = 20;  // Tick > 20 ms.
 const int kSendInterval = 100;   // Avoid driving the drain duration > 100 ms.
+const int kMaxSendDelta = 5;
 const float kEwmaGain = 0.125f;
 };  // namespace
 
@@ -26,6 +27,7 @@ MyTcpCubicSender::MyTcpCubicSender()
           kInitialCongestionWindow * kMaxSegmentSize / kSendInterval)),
       last_update_time_(QuicTime::Zero()),
       last_send_time_(QuicTime::Zero()),
+      last_receive_time_(QuicTime::Zero()),
       bytes_in_tick_(0) {
   DLOG(INFO) << "Using the MyTCP sender";
 }
@@ -66,19 +68,21 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       last_update_time_ = time_received;
     }
 
-    bool force_update = last_send_time_.IsInitialized() && time_sent.Subtract(last_send_time_).ToMilliseconds() > 5;
-    QuicTime::Delta tick_length = QuicTime::Delta::FromMilliseconds(kUpdateInterval);
-    if (!force_update) {
-      tick_length = time_received.Subtract(last_update_time_);
-      bytes_in_tick_ += bytes_sent;
-    }
+    bool force_update = last_send_time_.IsInitialized() &&
+        time_sent.Subtract(last_send_time_).ToMilliseconds() > kMaxSendDelta;
+    QuicTime::Delta tick_length =
+        (force_update ? last_receive_time_ : time_received)
+        .Subtract(last_update_time_);
+    bytes_in_tick_ += (force_update ? 0 : bytes_sent);
+
+    DLOG_IF(INFO, force_update) << "Send delta = " <<
+       time_sent.Subtract(last_send_time_) .ToMilliseconds();
 
     if (force_update || tick_length.ToMilliseconds() > kUpdateInterval) {
       QuicTime::Delta min_delta = QuicTime::Delta::FromMilliseconds(1);
       if (tick_length < min_delta) tick_length = min_delta;
 
       DLOG(INFO) << "Tick length = " << tick_length.ToMilliseconds() << " ms";
-      DLOG(INFO) << "Smoothed RTT = " << SmoothedRtt().ToMilliseconds() << " ms";
       DLOG(INFO) << "Bytes in this tick = " << bytes_in_tick_ << " bytes";
 
       QuicBandwidth current_throughput =
@@ -101,11 +105,12 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       DLOG(INFO) << "Average throughput = "
           << throughput_.ToKBytesPerSecond() << " kB/s";
 
-      bytes_in_tick_ = force_update ? bytes_sent : 0;
+      bytes_in_tick_ = (force_update ? bytes_sent : 0);
       last_update_time_ = time_received;
     }
 
     last_send_time_ = time_sent;
+    last_receive_time_ = time_received;
   }
 }
 
