@@ -48,6 +48,6 @@ then
   vim $SERVER_LOG_FILE $CLIENT_LOG_FILE
 fi
 
-time wget http://localhost/page.html
-rm page.html
+time wget http://localhost/$GET_FILE
+rm $GET_FILE*
 
