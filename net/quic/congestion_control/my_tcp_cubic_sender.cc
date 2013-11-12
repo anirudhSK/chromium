@@ -13,8 +13,6 @@ const int kInitialRttMs = 60;  // At a typical RTT 60 ms.
 const float kAlpha = 0.125f;
 const float kBeta = 0.25f;
 // Sprout-EWMA constants.
-// TODO(somakrdas): Vary these and investigate their effect when loss, delay,
-// and bandwidth change.
 const int kUpdateInterval = 20;  // Tick > 20 ms.
 const int kSendInterval = 100;   // Avoid driving the drain duration > 100 ms.
 const float kEwmaGain = 0.125f;
@@ -29,7 +27,6 @@ MyTcpCubicSender::MyTcpCubicSender()
       last_update_time_(QuicTime::Zero()),
       last_send_time_(QuicTime::Zero()),
       bytes_in_tick_(0) {
-  // TODO(somakrdas): Check for unnecessary Sprout-EWMA state.
   DLOG(INFO) << "Using the MyTCP sender";
 }
 
@@ -88,7 +85,6 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
           QuicBandwidth::FromBytesAndTimeDelta(bytes_in_tick_, tick_length);
       // We should use rtt (current measurement) instead of SmoothedRtt, but it
       // seems to be broken and is always equal to infinity.
-      // TODO(somakrdas): Investigate this.
       QuicBandwidth min_throughput =
           QuicBandwidth::FromBytesAndTimeDelta(kMaxSegmentSize, SmoothedRtt());
 
@@ -185,9 +181,6 @@ void MyTcpCubicSender::SetCongestionWindow(QuicByteCount window) {
 }
 
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
-  // TODO(pwestin): make a long term estimate, based on RTT and loss rate? or
-  // instantaneous estimate?
-  // Throughput ~= (1/RTT)*sqrt(3/2p)
   return QuicBandwidth::Zero();
 }
 
@@ -209,9 +202,6 @@ void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
   }
   // RTT can't be negative.
   DCHECK_LT(0, rtt.ToMicroseconds());
-
-  // TODO(pwestin): Discard delay samples right after fast recovery,
-  // during 1 second?.
 
   // First time call.
   if (smoothed_rtt_.IsZero()) {
