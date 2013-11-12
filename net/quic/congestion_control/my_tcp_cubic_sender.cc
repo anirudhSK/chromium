@@ -7,7 +7,7 @@
 namespace net {
 
 namespace {
-const QuicByteCount kMaxSegmentSize = kMaxPacketSize;
+const QuicByteCount kDefaultMaxSegmentSize = kMaxPacketSize;
 const int64 kInitialCongestionWindow = 10;
 const int kInitialRttMs = 60;  // At a typical RTT 60 ms.
 const float kAlpha = 0.125f;
@@ -20,11 +20,12 @@ const float kEwmaGain = 0.125f;
 };  // namespace
 
 MyTcpCubicSender::MyTcpCubicSender()
-    : bytes_in_flight_(0),
+    : max_segment_size_(kDefaultMaxSegmentSize),
+      bytes_in_flight_(0),
       smoothed_rtt_(QuicTime::Delta::Zero()),
       mean_deviation_(QuicTime::Delta::Zero()),
       throughput_(QuicBandwidth::FromKBytesPerSecond(
-          kInitialCongestionWindow * kMaxSegmentSize / kSendInterval)),
+          kInitialCongestionWindow * kDefaultMaxSegmentSize / kSendInterval)),
       last_update_time_(QuicTime::Zero()),
       last_send_time_(QuicTime::Zero()),
       last_receive_time_(QuicTime::Zero()),
@@ -38,8 +39,9 @@ MyTcpCubicSender::~MyTcpCubicSender() {
 void MyTcpCubicSender::SetFromConfig(const QuicConfig& config, bool is_server) {
   if (is_server) {
     throughput_ = QuicBandwidth::FromKBytesPerSecond(
-        config.server_initial_congestion_window() * kMaxSegmentSize /
+        config.server_initial_congestion_window() * max_segment_size_ /
         kSendInterval);
+    max_segment_size_ = config.server_max_packet_size();
   }
 }
 
@@ -75,8 +77,10 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
         .Subtract(last_update_time_);
     bytes_in_tick_ += (force_update ? 0 : bytes_sent);
 
-    DLOG_IF(INFO, force_update) << "Send delta = " <<
-       time_sent.Subtract(last_send_time_) .ToMilliseconds();
+    DLOG_IF(INFO, force_update)
+        << "Send delta = "
+        << time_sent.Subtract(last_send_time_).ToMilliseconds()
+        << " -> sequence number = " << sequence_number;
 
     if (force_update || tick_length.ToMilliseconds() > kUpdateInterval) {
       QuicTime::Delta min_delta = QuicTime::Delta::FromMilliseconds(1);
@@ -87,10 +91,10 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
 
       QuicBandwidth current_throughput =
           QuicBandwidth::FromBytesAndTimeDelta(bytes_in_tick_, tick_length);
-      // We should use rtt (current measurement) instead of SmoothedRtt, but it
-      // seems to be broken and is always equal to infinity.
+      // TODO(somakrdas): We should use rtt (current measurement) instead of
+      // SmoothedRtt, but it seems to be broken and is always equal to infinity.
       QuicBandwidth min_throughput =
-          QuicBandwidth::FromBytesAndTimeDelta(kMaxSegmentSize, SmoothedRtt());
+          QuicBandwidth::FromBytesAndTimeDelta(max_segment_size_, SmoothedRtt());
 
       throughput_ = throughput_.Scale(1 - kEwmaGain).Add(
           current_throughput.Scale(kEwmaGain));
@@ -173,20 +177,20 @@ QuicByteCount MyTcpCubicSender::AvailableSendWindow() {
 }
 
 QuicByteCount MyTcpCubicSender::SendWindow() {
-  QuicByteCount send_window = throughput_.ToBytesPerPeriod(
-      QuicTime::Delta::FromMilliseconds(kSendInterval));
-  return send_window;
+  return throughput_.ToBytesPerPeriod(QuicTime::Delta::FromMilliseconds(
+      kSendInterval));
 }
 
 QuicByteCount MyTcpCubicSender::GetCongestionWindow() {
-  return 0;
+  return SendWindow();
 }
 
 void MyTcpCubicSender::SetCongestionWindow(QuicByteCount window) {
+  throughput_ = QuicBandwidth::FromKBytesPerSecond(window / kSendInterval);
 }
 
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
-  return QuicBandwidth::Zero();
+  return throughput_;
 }
 
 QuicTime::Delta MyTcpCubicSender::SmoothedRtt() {

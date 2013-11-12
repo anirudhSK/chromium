@@ -65,6 +65,8 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   QuicByteCount SendWindow();
   void AckAccounting(QuicTime::Delta rtt);
 
+  QuicByteCount max_segment_size_;
+
   // Bytes in flight, aka bytes on the wire.
   QuicByteCount bytes_in_flight_;
 
