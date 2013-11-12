@@ -7,16 +7,11 @@
 namespace net {
 
 namespace {
-// Constants based on TCP defaults.
-const int64 kHybridStartLowWindow = 16;
 const QuicByteCount kMaxSegmentSize = kMaxPacketSize;
 const int64 kInitialCongestionWindow = 10;
-const int kMaxBurstLength = 3;
 const int kInitialRttMs = 60;  // At a typical RTT 60 ms.
 const float kAlpha = 0.125f;
-const float kOneMinusAlpha = (1 - kAlpha);
 const float kBeta = 0.25f;
-const float kOneMinusBeta = (1 - kBeta);
 // Sprout-EWMA constants.
 // TODO(somakrdas): Vary these and investigate their effect when loss, delay,
 // and bandwidth change.
@@ -225,12 +220,13 @@ void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
         rtt.ToMicroseconds() / 2);
   } else {
     mean_deviation_ = QuicTime::Delta::FromMicroseconds(
-        kOneMinusBeta * mean_deviation_.ToMicroseconds() +
+        (1.0 - kBeta) * mean_deviation_.ToMicroseconds() +
         kBeta * abs(smoothed_rtt_.ToMicroseconds() - rtt.ToMicroseconds()));
     smoothed_rtt_ = QuicTime::Delta::FromMicroseconds(
-        kOneMinusAlpha * smoothed_rtt_.ToMicroseconds() +
+        (1.0 - kAlpha) * smoothed_rtt_.ToMicroseconds() +
         kAlpha * rtt.ToMicroseconds());
-    DLOG(INFO) << "Cubic; mean_deviation_:" << mean_deviation_.ToMicroseconds();
+    DLOG(INFO) << "smoothed_rtt_:" << smoothed_rtt_.ToMicroseconds()
+               << " mean_deviation_:" << mean_deviation_.ToMicroseconds();
   }
 }
 
