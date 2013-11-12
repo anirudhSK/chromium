@@ -31,7 +31,7 @@ SendAlgorithmInterface* SendAlgorithmInterface::Create(
     case kFixRate:
       return new FixRateSender(clock);
     case kMyTCP:
-      return new MyTcpCubicSender(clock, kUseReno, kMaxTcpCongestionWindow);
+      return new MyTcpCubicSender();
   }
   return NULL;
 }

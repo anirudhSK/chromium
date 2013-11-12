@@ -11,8 +11,6 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "net/base/net_export.h"
-#include "net/quic/congestion_control/cubic.h"
-#include "net/quic/congestion_control/hybrid_slow_start.h"
 #include "net/quic/congestion_control/send_algorithm_interface.h"
 #include "net/quic/quic_bandwidth.h"
 #include "net/quic/quic_protocol.h"
@@ -27,9 +25,7 @@ class MyTcpCubicSenderPeer;
 class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
  public:
   // Reno option and max_tcp_congestion_window are provided for testing.
-  MyTcpCubicSender(const QuicClock* clock,
-                 bool reno,
-                 QuicTcpCongestionWindow max_tcp_congestion_window);
+  MyTcpCubicSender();
   virtual ~MyTcpCubicSender();
 
   // Start implementation of SendAlgorithmInterface.
@@ -67,42 +63,10 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
 
   QuicByteCount AvailableSendWindow();
   QuicByteCount SendWindow();
-  void Reset();
   void AckAccounting(QuicTime::Delta rtt);
-  void CongestionAvoidance(QuicPacketSequenceNumber ack);
-  bool IsCwndLimited() const;
-  void OnTimeOut();
-
-  HybridSlowStart hybrid_slow_start_;
-  Cubic cubic_;
-
-  // Reno provided for testing.
-  const bool reno_;
-
-  // ACK counter for the Reno implementation.
-  int64 congestion_window_count_;
-
-  // Receiver side advertised packet loss.
-  int last_received_accumulated_number_of_lost_packets_;
 
   // Bytes in flight, aka bytes on the wire.
   QuicByteCount bytes_in_flight_;
-
-  // We need to keep track of the end sequence number of each RTT "burst".
-  bool update_end_sequence_number_;
-  QuicPacketSequenceNumber end_sequence_number_;
-
-  // Congestion window in packets.
-  QuicTcpCongestionWindow congestion_window_;
-
-  // Slow start congestion window in packets.
-  QuicTcpCongestionWindow slowstart_threshold_;
-
-  // Maximum number of outstanding packets for tcp.
-  QuicTcpCongestionWindow max_tcp_congestion_window_;
-
-  // Min RTT during this session.
-  QuicTime::Delta delay_min_;
 
   // Smoothed RTT during this session.
   QuicTime::Delta smoothed_rtt_;
@@ -113,10 +77,9 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   QuicTime::Delta mean_deviation_;
 
   // Sprout-EWMA state.
-  const QuicClock* clock_;
   QuicBandwidth throughput_;
   QuicTime last_update_time_;
-  QuicTime last_send_time_, last_receive_time_;
+  QuicTime last_send_time_;
   QuicByteCount bytes_in_tick_;
 
   DISALLOW_COPY_AND_ASSIGN(MyTcpCubicSender);

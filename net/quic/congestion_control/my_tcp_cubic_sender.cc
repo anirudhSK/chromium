@@ -25,30 +25,14 @@ const int kSendInterval = 100;   // Avoid driving the drain duration > 100 ms.
 const float kEwmaGain = 0.125f;
 };  // namespace
 
-MyTcpCubicSender::MyTcpCubicSender(
-    const QuicClock* clock,
-    bool reno,
-    QuicTcpCongestionWindow max_tcp_congestion_window)
-    : hybrid_slow_start_(clock),
-      cubic_(clock),
-      reno_(reno),
-      congestion_window_count_(0),
-      last_received_accumulated_number_of_lost_packets_(0),
-      bytes_in_flight_(0),
-      update_end_sequence_number_(true),
-      end_sequence_number_(0),
-      congestion_window_(kInitialCongestionWindow),
-      slowstart_threshold_(max_tcp_congestion_window),
-      max_tcp_congestion_window_(max_tcp_congestion_window),
-      delay_min_(QuicTime::Delta::Zero()),
+MyTcpCubicSender::MyTcpCubicSender()
+    : bytes_in_flight_(0),
       smoothed_rtt_(QuicTime::Delta::Zero()),
       mean_deviation_(QuicTime::Delta::Zero()),
-      clock_(clock),
       throughput_(QuicBandwidth::FromKBytesPerSecond(
           kInitialCongestionWindow * kMaxSegmentSize / kSendInterval)),
       last_update_time_(QuicTime::Zero()),
       last_send_time_(QuicTime::Zero()),
-      last_receive_time_(QuicTime::Zero()),
       bytes_in_tick_(0) {
   // TODO(somakrdas): Check for unnecessary Sprout-EWMA state.
   DLOG(INFO) << "Using the MyTCP sender";
@@ -69,17 +53,6 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     const QuicCongestionFeedbackFrame& feedback,
     QuicTime feedback_receive_time,
     const SentPacketsMap& sent_packets) {
-  if (last_received_accumulated_number_of_lost_packets_ !=
-      feedback.my_tcp.accumulated_number_of_lost_packets) {
-    int recovered_lost_packets =
-        last_received_accumulated_number_of_lost_packets_ -
-        feedback.my_tcp.accumulated_number_of_lost_packets;
-    last_received_accumulated_number_of_lost_packets_ =
-        feedback.my_tcp.accumulated_number_of_lost_packets;
-    if (recovered_lost_packets > 0) {
-      OnIncomingLoss(feedback_receive_time);
-    }
-  }
   DLOG(INFO) << "Received feedback = " << feedback;
 
   for (TimeMap::const_iterator received_it =
@@ -106,9 +79,6 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     if (!force_update) {
       tick_length = time_received.Subtract(last_update_time_);
       bytes_in_tick_ += bytes_sent;
-    } else {
-      DLOG(INFO) << "time since last packet sent = " << time_sent.Subtract(last_send_time_).ToMilliseconds() << " ms";
-      DLOG(INFO) << "time since last packet received = " << time_received.Subtract(last_receive_time_).ToMilliseconds() << " ms";
     }
 
     if (force_update || tick_length.ToMilliseconds() > kUpdateInterval) {
@@ -145,7 +115,6 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     }
 
     last_send_time_ = time_sent;
-    last_receive_time_ = time_received;
   }
 }
 
@@ -154,32 +123,10 @@ void MyTcpCubicSender::OnIncomingAck(
     QuicTime::Delta rtt) {
   DCHECK_GE(bytes_in_flight_, acked_bytes);
   bytes_in_flight_ -= acked_bytes;
-  CongestionAvoidance(acked_sequence_number);
   AckAccounting(rtt);
-  if (end_sequence_number_ == acked_sequence_number) {
-    DLOG(INFO) << "Start update end sequence number @" << acked_sequence_number;
-    update_end_sequence_number_ = true;
-  }
 }
 
 void MyTcpCubicSender::OnIncomingLoss(QuicTime /*ack_receive_time*/) {
-  // In a normal TCP we would need to know the lowest missing packet to detect
-  // if we receive 3 missing packets. Here we get a missing packet for which we
-  // enter TCP Fast Retransmit immediately.
-  if (reno_) {
-    congestion_window_ = congestion_window_ >> 1;
-    slowstart_threshold_ = congestion_window_;
-  } else {
-    congestion_window_ =
-        cubic_.CongestionWindowAfterPacketLoss(congestion_window_);
-    slowstart_threshold_ = congestion_window_;
-  }
-
-  // Sanity, make sure that we don't end up with an empty window.
-  if (congestion_window_ == 0) {
-    congestion_window_ = 1;
-  }
-  DLOG(INFO) << "Incoming loss; congestion window:" << congestion_window_;
 }
 
 bool MyTcpCubicSender::OnPacketSent(QuicTime /*sent_time*/,
@@ -193,13 +140,6 @@ bool MyTcpCubicSender::OnPacketSent(QuicTime /*sent_time*/,
   }
 
   bytes_in_flight_ += bytes;
-  if (transmission_type == NOT_RETRANSMISSION && update_end_sequence_number_) {
-    end_sequence_number_ = sequence_number;
-    if (AvailableSendWindow() == 0) {
-      update_end_sequence_number_ = false;
-      DLOG(INFO) << "Stop update end sequence number @" << sequence_number;
-    }
-  }
   return true;
 }
 
@@ -247,7 +187,6 @@ QuicByteCount MyTcpCubicSender::GetCongestionWindow() {
 }
 
 void MyTcpCubicSender::SetCongestionWindow(QuicByteCount window) {
-  return;
 }
 
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
@@ -269,68 +208,6 @@ QuicTime::Delta MyTcpCubicSender::RetransmissionDelay() {
       smoothed_rtt_.ToMicroseconds() + 4 * mean_deviation_.ToMicroseconds());
 }
 
-void MyTcpCubicSender::Reset() {
-  delay_min_ = QuicTime::Delta::Zero();
-  hybrid_slow_start_.Restart();
-}
-
-bool MyTcpCubicSender::IsCwndLimited() const {
-  const QuicByteCount congestion_window_bytes = congestion_window_ *
-      kMaxSegmentSize;
-  if (bytes_in_flight_ >= congestion_window_bytes) {
-    return true;
-  }
-  const QuicByteCount tcp_max_burst = kMaxBurstLength * kMaxSegmentSize;
-  const QuicByteCount left = congestion_window_bytes - bytes_in_flight_;
-  return left <= tcp_max_burst;
-}
-
-// Called when we receive and ack. Normal TCP tracks how many packets one ack
-// represents, but quic has a separate ack for each packet.
-void MyTcpCubicSender::CongestionAvoidance(QuicPacketSequenceNumber ack) {
-  if (!IsCwndLimited()) {
-    // We don't update the congestion window unless we are close to using the
-    // window we have available.
-    return;
-  }
-  if (congestion_window_ < slowstart_threshold_) {
-    // Slow start.
-    if (hybrid_slow_start_.EndOfRound(ack)) {
-      hybrid_slow_start_.Reset(end_sequence_number_);
-    }
-    // congestion_window_cnt is the number of acks since last change of snd_cwnd
-    if (congestion_window_ < max_tcp_congestion_window_) {
-      // TCP slow start, exponential growth, increase by one for each ACK.
-      congestion_window_++;
-    }
-    DLOG(INFO) << "Slow start; congestion window:" << congestion_window_;
-  } else {
-    if (congestion_window_ < max_tcp_congestion_window_) {
-      if (reno_) {
-        // Classic Reno congestion avoidance provided for testing.
-        if (congestion_window_count_ >= congestion_window_) {
-          congestion_window_++;
-          congestion_window_count_ = 0;
-        } else {
-          congestion_window_count_++;
-        }
-        DLOG(INFO) << "Reno; congestion window:" << congestion_window_;
-      } else {
-        congestion_window_ = std::min(
-            max_tcp_congestion_window_,
-            cubic_.CongestionWindowAfterAck(congestion_window_, delay_min_));
-        DLOG(INFO) << "Cubic; congestion window:" << congestion_window_;
-      }
-    }
-  }
-}
-
-// TODO(pwestin): what is the timout value?
-void MyTcpCubicSender::OnTimeOut() {
-  cubic_.Reset();
-  congestion_window_ = 1;
-}
-
 void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
   if (rtt.IsInfinite() || rtt.IsZero()) {
     return;
@@ -341,10 +218,6 @@ void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
   // TODO(pwestin): Discard delay samples right after fast recovery,
   // during 1 second?.
 
-  // First time call or link delay decreases.
-  if (delay_min_.IsZero() || delay_min_ > rtt) {
-    delay_min_ = rtt;
-  }
   // First time call.
   if (smoothed_rtt_.IsZero()) {
     smoothed_rtt_ = rtt;
@@ -358,19 +231,6 @@ void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
         kOneMinusAlpha * smoothed_rtt_.ToMicroseconds() +
         kAlpha * rtt.ToMicroseconds());
     DLOG(INFO) << "Cubic; mean_deviation_:" << mean_deviation_.ToMicroseconds();
-  }
-
-  // Hybrid start triggers when cwnd is larger than some threshold.
-  if (congestion_window_ <= slowstart_threshold_ &&
-      congestion_window_ >= kHybridStartLowWindow) {
-    if (!hybrid_slow_start_.started()) {
-      // Time to start the hybrid slow start.
-      hybrid_slow_start_.Reset(end_sequence_number_);
-    }
-    hybrid_slow_start_.Update(rtt, delay_min_);
-    if (hybrid_slow_start_.Exit()) {
-      slowstart_threshold_ = congestion_window_;
-    }
   }
 }
 
