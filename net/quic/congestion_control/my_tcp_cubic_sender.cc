@@ -41,8 +41,11 @@ void MyTcpCubicSender::SetFromConfig(const QuicConfig& config, bool is_server) {
     throughput_ = QuicBandwidth::FromKBytesPerSecond(
         config.server_initial_congestion_window() * max_segment_size_ /
         kSendInterval);
-    max_segment_size_ = config.server_max_packet_size();
   }
+}
+
+void MyTcpCubicSender::SetMaxPacketSize(QuicByteCount max_packet_size) {
+  max_segment_size_ = max_packet_size;
 }
 
 void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
@@ -62,8 +65,8 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       continue;
     }
     QuicTime time_received = received_it->second;
-    QuicTime time_sent = sent_it->second->SendTimestamp();
-    QuicByteCount bytes_sent = sent_it->second->BytesSent();
+    QuicTime time_sent = sent_it->second->send_timestamp();
+    QuicByteCount bytes_sent = sent_it->second->bytes_sent();
 
     // Sprout-EWMA logic.
     if (!last_update_time_.IsInitialized()) {
@@ -126,7 +129,10 @@ void MyTcpCubicSender::OnIncomingAck(
   AckAccounting(rtt);
 }
 
-void MyTcpCubicSender::OnIncomingLoss(QuicTime /*ack_receive_time*/) {
+
+void MyTcpCubicSender::OnIncomingLoss(
+    QuicPacketSequenceNumber /*sequence_number*/,
+    QuicTime /*ack_receive_time*/) {
 }
 
 bool MyTcpCubicSender::OnPacketSent(QuicTime /*sent_time*/,
@@ -141,6 +147,9 @@ bool MyTcpCubicSender::OnPacketSent(QuicTime /*sent_time*/,
 
   bytes_in_flight_ += bytes;
   return true;
+}
+
+void MyTcpCubicSender::OnRetransmissionTimeout() {
 }
 
 void MyTcpCubicSender::OnPacketAbandoned(QuicPacketSequenceNumber sequence_number,
@@ -169,19 +178,19 @@ QuicTime::Delta MyTcpCubicSender::TimeUntilSend(
   return QuicTime::Delta::Zero();
 }
 
-QuicByteCount MyTcpCubicSender::AvailableSendWindow() {
+QuicByteCount MyTcpCubicSender::AvailableSendWindow() const {
   if (bytes_in_flight_ > SendWindow()) {
     return 0;
   }
   return SendWindow() - bytes_in_flight_;
 }
 
-QuicByteCount MyTcpCubicSender::SendWindow() {
+QuicByteCount MyTcpCubicSender::SendWindow() const {
   return throughput_.ToBytesPerPeriod(QuicTime::Delta::FromMilliseconds(
       kSendInterval));
 }
 
-QuicByteCount MyTcpCubicSender::GetCongestionWindow() {
+QuicByteCount MyTcpCubicSender::GetCongestionWindow() const {
   return SendWindow();
 }
 
@@ -189,18 +198,18 @@ void MyTcpCubicSender::SetCongestionWindow(QuicByteCount window) {
   throughput_ = QuicBandwidth::FromKBytesPerSecond(window / kSendInterval);
 }
 
-QuicBandwidth MyTcpCubicSender::BandwidthEstimate() {
+QuicBandwidth MyTcpCubicSender::BandwidthEstimate() const {
   return throughput_;
 }
 
-QuicTime::Delta MyTcpCubicSender::SmoothedRtt() {
+QuicTime::Delta MyTcpCubicSender::SmoothedRtt() const {
   if (smoothed_rtt_.IsZero()) {
     return QuicTime::Delta::FromMilliseconds(kInitialRttMs);
   }
   return smoothed_rtt_;
 }
 
-QuicTime::Delta MyTcpCubicSender::RetransmissionDelay() {
+QuicTime::Delta MyTcpCubicSender::RetransmissionDelay() const {
   return QuicTime::Delta::FromMicroseconds(
       smoothed_rtt_.ToMicroseconds() + 4 * mean_deviation_.ToMicroseconds());
 }

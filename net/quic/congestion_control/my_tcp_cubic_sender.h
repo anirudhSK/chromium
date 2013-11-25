@@ -30,6 +30,7 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
 
   // Start implementation of SendAlgorithmInterface.
   virtual void SetFromConfig(const QuicConfig& config, bool is_server) OVERRIDE;
+  virtual void SetMaxPacketSize(QuicByteCount max_packet_size) OVERRIDE;
   virtual void OnIncomingQuicCongestionFeedbackFrame(
       const QuicCongestionFeedbackFrame& feedback,
       QuicTime feedback_receive_time,
@@ -37,13 +38,15 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   virtual void OnIncomingAck(QuicPacketSequenceNumber acked_sequence_number,
                              QuicByteCount acked_bytes,
                              QuicTime::Delta rtt) OVERRIDE;
-  virtual void OnIncomingLoss(QuicTime ack_receive_time) OVERRIDE;
+  virtual void OnIncomingLoss(QuicPacketSequenceNumber sequence_number,
+                              QuicTime ack_receive_time) OVERRIDE;
   virtual bool OnPacketSent(
       QuicTime sent_time,
       QuicPacketSequenceNumber sequence_number,
       QuicByteCount bytes,
       TransmissionType transmission_type,
       HasRetransmittableData is_retransmittable) OVERRIDE;
+  virtual void OnRetransmissionTimeout() OVERRIDE;
   virtual void OnPacketAbandoned(QuicPacketSequenceNumber sequence_number,
                                  QuicByteCount abandoned_bytes) OVERRIDE;
   virtual QuicTime::Delta TimeUntilSend(
@@ -51,18 +54,18 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
       TransmissionType transmission_type,
       HasRetransmittableData has_retransmittable_data,
       IsHandshake handshake) OVERRIDE;
-  virtual QuicByteCount GetCongestionWindow() OVERRIDE;
+  virtual QuicByteCount GetCongestionWindow() const OVERRIDE;
   virtual void SetCongestionWindow(QuicByteCount window) OVERRIDE;
-  virtual QuicBandwidth BandwidthEstimate() OVERRIDE;
-  virtual QuicTime::Delta SmoothedRtt() OVERRIDE;
-  virtual QuicTime::Delta RetransmissionDelay() OVERRIDE;
+  virtual QuicBandwidth BandwidthEstimate() const OVERRIDE;
+  virtual QuicTime::Delta SmoothedRtt() const OVERRIDE;
+  virtual QuicTime::Delta RetransmissionDelay() const OVERRIDE;
   // End implementation of SendAlgorithmInterface.
 
  private:
   friend class test::MyTcpCubicSenderPeer;
 
-  QuicByteCount AvailableSendWindow();
-  QuicByteCount SendWindow();
+  QuicByteCount AvailableSendWindow() const;
+  QuicByteCount SendWindow() const;
   void AckAccounting(QuicTime::Delta rtt);
 
   QuicByteCount max_segment_size_;
