@@ -1584,6 +1584,8 @@ bool QuicFramer::ProcessQuicCongestionFeedbackFrame(
       }
       // Simple bit packing, don't send the 4 least significant bits.
       my_tcp->receive_window = static_cast<QuicByteCount>(receive_window) << 4;
+
+      // Code from InterArrival.
       uint8 num_received_packets;
       if (!reader_->ReadBytes(&num_received_packets, 1)) {
         set_detailed_error("Unable to read num received packets.");
@@ -2369,13 +2371,13 @@ bool QuicFramer::AppendCongestionFeedbackFrame(
       if (!writer->WriteUInt16(receive_window)) {
         return false;
       }
+      // Code from InterArrival.
       DCHECK_GE(numeric_limits<uint8>::max(),
                 my_tcp.received_packet_times.size());
       if (my_tcp.received_packet_times.size() >
           numeric_limits<uint8>::max()) {
         return false;
       }
-      // TODO(ianswett): Make num_received_packets a varint.
       uint8 num_received_packets =
           my_tcp.received_packet_times.size();
       if (!writer->WriteBytes(&num_received_packets, 1)) {
