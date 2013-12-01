@@ -121,7 +121,7 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
   }
 }
 
-void MyTcpCubicSender::OnIncomingAck(
+void MyTcpCubicSender::OnPacketAcked(
     QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
     QuicTime::Delta rtt) {
   DCHECK_GE(bytes_in_flight_, acked_bytes);
@@ -130,7 +130,7 @@ void MyTcpCubicSender::OnIncomingAck(
 }
 
 
-void MyTcpCubicSender::OnIncomingLoss(
+void MyTcpCubicSender::OnPacketLost(
     QuicPacketSequenceNumber /*sequence_number*/,
     QuicTime /*ack_receive_time*/) {
 }
