@@ -13,8 +13,8 @@ const float kAlpha = 0.125f;
 const float kBeta = 0.25f;
 
 // Sprout-EWMA constants.
-const int kMinTickLengthMs = 20;  // Tick > 20 ms.
-const int kTargetDelayMs = 100;   // Avoid driving the drain duration > 100 ms.
+const int64 kTargetDelayMs = 100;
+const int kMinTickLengthMs = 20;
 const int kMaxTimeToNextMs = 5;
 const float kGamma = 0.125f;
 };  // namespace
@@ -29,7 +29,8 @@ MyTcpCubicSender::MyTcpCubicSender()
       last_update_time_(QuicTime::Zero()),
       last_send_time_(QuicTime::Zero()),
       last_receive_time_(QuicTime::Zero()),
-      bytes_in_tick_(0) {
+      bytes_in_tick_(0),
+      min_rtt_(QuicTime::Delta::Zero()) {
   DVLOG(1) << "Using the Sprout-EWMA sender";
 }
 
@@ -163,8 +164,10 @@ QuicByteCount MyTcpCubicSender::AvailableSendWindow() const {
 }
 
 QuicByteCount MyTcpCubicSender::SendWindow() const {
+  const int64 target_delay_ms = std::max(kTargetDelayMs,
+      min_rtt_.ToMilliseconds());
   return throughput_.ToBytesPerPeriod(QuicTime::Delta::FromMilliseconds(
-      kTargetDelayMs));
+      target_delay_ms));
 }
 
 QuicByteCount MyTcpCubicSender::GetCongestionWindow() const {
@@ -200,6 +203,8 @@ void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
     smoothed_rtt_ = rtt;
     mean_deviation_ = QuicTime::Delta::FromMicroseconds(
         rtt.ToMicroseconds() / 2);
+
+    min_rtt_ = rtt;
   } else {
     mean_deviation_ = QuicTime::Delta::FromMicroseconds(
         (1.0 - kBeta) * mean_deviation_.ToMicroseconds() +
@@ -209,6 +214,10 @@ void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
         kAlpha * rtt.ToMicroseconds());
     DVLOG(1) << "smoothed_rtt_:" << smoothed_rtt_.ToMicroseconds()
              << " mean_deviation_:" << mean_deviation_.ToMicroseconds();
+
+    if (min_rtt_ > rtt) {
+      min_rtt_ = rtt;
+    }
   }
 }
 
