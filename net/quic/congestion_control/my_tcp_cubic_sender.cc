@@ -14,8 +14,8 @@ const float kBeta = 0.25f;
 
 // Sprout-EWMA constants.
 const int64 kTargetDelayMs = 100;
-const int kMinTickLengthMs = 20;
-const int kMaxTimeToNextMs = 5;
+const int64 kMinTickLengthMs = 20;
+const int64 kMaxTimeToNextMs = 5;
 const float kGamma = 0.125f;
 };  // namespace
 
@@ -24,7 +24,7 @@ MyTcpCubicSender::MyTcpCubicSender()
       bytes_in_flight_(0),
       smoothed_rtt_(QuicTime::Delta::Zero()),
       mean_deviation_(QuicTime::Delta::Zero()),
-      throughput_(QuicBandwidth::FromKBytesPerSecond(
+      smoothed_throughput_(QuicBandwidth::FromKBytesPerSecond(
           kInitialCongestionWindow * kMaxPacketSize / kTargetDelayMs)),
       last_update_time_(QuicTime::Zero()),
       last_send_time_(QuicTime::Zero()),
@@ -39,7 +39,7 @@ MyTcpCubicSender::~MyTcpCubicSender() {
 
 void MyTcpCubicSender::SetFromConfig(const QuicConfig& config, bool is_server) {
   if (is_server) {
-    throughput_ = QuicBandwidth::FromKBytesPerSecond(
+    smoothed_throughput_ = QuicBandwidth::FromKBytesPerSecond(
         config.server_initial_congestion_window() * max_segment_size_ /
         kTargetDelayMs);
   }
@@ -69,10 +69,12 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
 
     // Sprout-EWMA logic.
     if (!last_update_time_.IsInitialized()) {
+      last_send_time_ = time_sent;
+      last_receive_time_ = time_received;
       last_update_time_ = time_received;
     }
 
-    const bool force_update = last_send_time_.IsInitialized() &&
+    const bool force_update =
         time_sent.Subtract(last_send_time_).ToMilliseconds() > kMaxTimeToNextMs;
     DVLOG_IF(1, force_update)
         << "time to next = "
@@ -85,17 +87,16 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     bytes_in_tick_ += (force_update ? 0 : bytes_sent);
 
     if (tick_length.ToMilliseconds() >= kMinTickLengthMs) {
-      QuicBandwidth current_throughput =
+      QuicBandwidth throughput =
           QuicBandwidth::FromBytesAndTimeDelta(bytes_in_tick_, tick_length);
-      throughput_ = throughput_.Scale(1.0 - kGamma).Add(
-          current_throughput.Scale(kGamma));
+      smoothed_throughput_ = smoothed_throughput_.Scale(1.0 - kGamma).Add(
+          throughput.Scale(kGamma));
 
       DVLOG(1) << "tick length = " << tick_length.ToMilliseconds() << " ms";
       DVLOG(1) << "bytes in this tick = " << bytes_in_tick_;
-      DVLOG(1) << "current throughput = "
-               << current_throughput.ToKBytesPerSecond() << " kB/s";
+      DVLOG(1) << "throughput = " << throughput.ToKBytesPerSecond() << " kB/s";
       DVLOG(1) << "smoothed throughput = "
-               << throughput_.ToKBytesPerSecond() << " kB/s";
+               << smoothed_throughput_.ToKBytesPerSecond() << " kB/s";
 
       bytes_in_tick_ = (force_update ? bytes_sent : 0);
       last_update_time_ = time_received;
@@ -154,39 +155,29 @@ QuicTime::Delta MyTcpCubicSender::TimeUntilSend(
     // concept is not present in TCP.
     return QuicTime::Delta::Zero();
   }
-  return AvailableSendWindow() > 0 ? QuicTime::Delta::Zero() :
+  return GetCongestionWindow() > bytes_in_flight_ ? QuicTime::Delta::Zero() :
       QuicTime::Delta::Infinite();
 }
 
-QuicByteCount MyTcpCubicSender::AvailableSendWindow() const {
-  const QuicByteCount send_window = SendWindow();
-  return send_window > bytes_in_flight_ ? send_window - bytes_in_flight_ : 0;
-}
-
-QuicByteCount MyTcpCubicSender::SendWindow() const {
+QuicByteCount MyTcpCubicSender::GetCongestionWindow() const {
   const int64 target_delay_ms = std::max(kTargetDelayMs,
       min_rtt_.ToMilliseconds());
-  return throughput_.ToBytesPerPeriod(QuicTime::Delta::FromMilliseconds(
-      target_delay_ms));
-}
-
-QuicByteCount MyTcpCubicSender::GetCongestionWindow() const {
-  return SendWindow();
+  return smoothed_throughput_.ToBytesPerPeriod(
+      QuicTime::Delta::FromMilliseconds(target_delay_ms));
 }
 
 void MyTcpCubicSender::SetCongestionWindow(QuicByteCount window) {
-  throughput_ = QuicBandwidth::FromKBytesPerSecond(window / kTargetDelayMs);
+  smoothed_throughput_ = QuicBandwidth::FromKBytesPerSecond(
+      window / kTargetDelayMs);
 }
 
 QuicBandwidth MyTcpCubicSender::BandwidthEstimate() const {
-  return throughput_;
+  return smoothed_throughput_;
 }
 
 QuicTime::Delta MyTcpCubicSender::SmoothedRtt() const {
-  if (smoothed_rtt_.IsZero()) {
-    return QuicTime::Delta::FromMilliseconds(kInitialRttMs);
-  }
-  return smoothed_rtt_;
+  return smoothed_rtt_.IsZero() ?
+      QuicTime::Delta::FromMilliseconds(kInitialRttMs) : smoothed_rtt_;
 }
 
 QuicTime::Delta MyTcpCubicSender::RetransmissionDelay() const {

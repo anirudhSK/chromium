@@ -64,8 +64,6 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
  private:
   friend class test::MyTcpCubicSenderPeer;
 
-  QuicByteCount AvailableSendWindow() const;
-  QuicByteCount SendWindow() const;
   void AckAccounting(QuicTime::Delta rtt);
 
   QuicByteCount max_segment_size_;
@@ -82,7 +80,7 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   QuicTime::Delta mean_deviation_;
 
   // Sprout-EWMA state.
-  QuicBandwidth throughput_;
+  QuicBandwidth smoothed_throughput_;
   QuicTime last_update_time_;
   QuicTime last_send_time_;
   QuicTime last_receive_time_;
