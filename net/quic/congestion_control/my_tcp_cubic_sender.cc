@@ -27,8 +27,6 @@ MyTcpCubicSender::MyTcpCubicSender()
       smoothed_throughput_(QuicBandwidth::FromKBytesPerSecond(
           kInitialCongestionWindow * kMaxPacketSize / kTargetDelayMs)),
       last_update_time_(QuicTime::Zero()),
-      last_send_time_(QuicTime::Zero()),
-      last_receive_time_(QuicTime::Zero()),
       bytes_in_tick_(0),
       min_rtt_(QuicTime::Delta::Zero()) {
   DVLOG(1) << "Using the Sprout-EWMA sender";
@@ -67,24 +65,25 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     const QuicTime time_sent = sent_it->second->send_timestamp();
     const QuicByteCount bytes_sent = sent_it->second->bytes_sent();
 
-    // Sprout-EWMA logic.
-    if (!last_update_time_.IsInitialized()) {
-      last_send_time_ = time_sent;
-      last_receive_time_ = time_received;
-      last_update_time_ = time_received;
+    bool force_update = false;
+    sent_it++;
+    if (sent_it == sent_packets.end()) {
+      force_update = true;
+    } else {
+      const QuicTime time_next_sent = sent_it->second->send_timestamp();
+      force_update = time_next_sent.Subtract(time_sent).ToMilliseconds() >
+          kMaxTimeToNextMs;
     }
 
-    const bool force_update =
-        time_sent.Subtract(last_send_time_).ToMilliseconds() > kMaxTimeToNextMs;
-    DVLOG_IF(1, force_update)
-        << "time to next = "
-        << time_sent.Subtract(last_send_time_).ToMilliseconds()
-        << " ms; sequence number @ " << sequence_number;
+    // Sprout-EWMA logic.
+    if (!last_update_time_.IsInitialized()) {
+      last_update_time_ = time_received;
+    }
 
     const QuicTime::Delta tick_length = force_update ?
         QuicTime::Delta::FromMilliseconds(kMinTickLengthMs) :
         time_received.Subtract(last_update_time_);
-    bytes_in_tick_ += (force_update ? 0 : bytes_sent);
+    bytes_in_tick_ += bytes_sent;
 
     if (tick_length.ToMilliseconds() >= kMinTickLengthMs) {
       QuicBandwidth throughput =
@@ -98,12 +97,9 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       DVLOG(1) << "smoothed throughput = "
                << smoothed_throughput_.ToKBytesPerSecond() << " kB/s";
 
-      bytes_in_tick_ = (force_update ? bytes_sent : 0);
-      last_update_time_ = time_received;
+      bytes_in_tick_ = 0;
+      last_update_time_ = force_update ? QuicTime::Zero() : time_received;
     }
-
-    last_send_time_ = time_sent;
-    last_receive_time_ = time_received;
   }
 }
 
