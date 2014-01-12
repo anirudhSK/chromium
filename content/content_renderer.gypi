@@ -283,6 +283,8 @@
     'renderer/media/webmediaplayer_delegate.h',
     'renderer/media/webmediaplayer_impl.cc',
     'renderer/media/webmediaplayer_impl.h',
+    'renderer/media/video_monkey.cc',
+    'renderer/media/video_monkey.hh',
     'renderer/media/webmediaplayer_ms.cc',
     'renderer/media/webmediaplayer_ms.h',
     'renderer/media/webmediaplayer_params.cc',

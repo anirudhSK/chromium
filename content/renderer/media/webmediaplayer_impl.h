@@ -31,6 +31,7 @@
 #include "cc/layers/video_frame_provider.h"
 #include "content/public/renderer/render_view_observer.h"
 #include "content/renderer/media/crypto/proxy_decryptor.h"
+#include "content/renderer/media/video_monkey.hh"
 #include "media/base/audio_renderer_sink.h"
 #include "media/base/decryptor.h"
 #include "media/base/media_keys.h"
@@ -262,6 +263,8 @@ class WebMediaPlayerImpl
   // |painting_frame| is set to true if |current_frame_| is being painted.
   // False indicates |current_frame_| is being replaced with a new frame.
   void DoneWaitingForPaint(bool painting_frame);
+
+  VideoMonkey video_monkey_;
 
   blink::WebFrame* frame_;
 

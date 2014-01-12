@@ -135,6 +135,7 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
     base::WeakPtr<WebMediaPlayerDelegate> delegate,
     const WebMediaPlayerParams& params)
     : content::RenderViewObserver(render_view),
+      video_monkey_(),
       frame_(frame),
       network_state_(WebMediaPlayer::NetworkStateEmpty),
       ready_state_(WebMediaPlayer::ReadyStateHaveNothing),
@@ -1265,6 +1266,7 @@ void WebMediaPlayerImpl::OnDurationChange() {
 
 void WebMediaPlayerImpl::FrameReady(
     const scoped_refptr<media::VideoFrame>& frame) {
+  video_monkey_.add_frame();
   base::AutoLock auto_lock(lock_);
 
   if (current_frame_ &&
