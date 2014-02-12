@@ -104,13 +104,10 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
 }
 
 void MyTcpCubicSender::OnPacketAcked(
-    QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes,
-    QuicTime::Delta rtt) {
+    QuicPacketSequenceNumber acked_sequence_number, QuicByteCount acked_bytes) {
   DCHECK_GE(bytes_in_flight_, acked_bytes);
   bytes_in_flight_ -= acked_bytes;
-  AckAccounting(rtt);
 }
-
 
 void MyTcpCubicSender::OnPacketLost(
     QuicPacketSequenceNumber /*sequence_number*/,
@@ -130,7 +127,9 @@ bool MyTcpCubicSender::OnPacketSent(
   return true;
 }
 
-void MyTcpCubicSender::OnRetransmissionTimeout() {
+void MyTcpCubicSender::OnRetransmissionTimeout(bool packets_retransmitted) {
+  // TODO(somakrdas): Check this logic, taken from TcpCubicSender.
+  bytes_in_flight_ = 0;
 }
 
 void MyTcpCubicSender::OnPacketAbandoned(
@@ -181,7 +180,7 @@ QuicTime::Delta MyTcpCubicSender::RetransmissionDelay() const {
       smoothed_rtt_.ToMicroseconds() + 4 * mean_deviation_.ToMicroseconds());
 }
 
-void MyTcpCubicSender::AckAccounting(QuicTime::Delta rtt) {
+void MyTcpCubicSender::UpdateRtt(QuicTime::Delta rtt) {
   if (rtt.IsInfinite() || rtt.IsZero()) {
     return;
   }

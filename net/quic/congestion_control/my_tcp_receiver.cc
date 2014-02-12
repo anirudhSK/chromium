@@ -29,6 +29,7 @@ bool MyTcpReceiver::GenerateCongestionFeedback(
   */
 
   feedback->type = kMyTCP;
+  // TODO(somakrdas): Is this necessary?
   feedback->my_tcp.accumulated_number_of_lost_packets =
       accumulated_number_of_recoverd_lost_packets_;
   feedback->my_tcp.receive_window = receive_window_;
@@ -45,11 +46,7 @@ bool MyTcpReceiver::GenerateCongestionFeedback(
 
 void MyTcpReceiver::RecordIncomingPacket(QuicByteCount bytes,
                                        QuicPacketSequenceNumber sequence_number,
-                                       QuicTime timestamp,
-                                       bool revived) {
-  if (revived) {
-    ++accumulated_number_of_recoverd_lost_packets_;
-  }
+                                       QuicTime timestamp) {
   received_packet_times_.insert(std::make_pair(sequence_number, timestamp));
 
   if (received_packet_times_.size() > kMaxTimeMapSize) {

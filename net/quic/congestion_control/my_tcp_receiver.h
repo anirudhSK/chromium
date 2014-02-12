@@ -26,8 +26,7 @@ class NET_EXPORT_PRIVATE MyTcpReceiver : public ReceiveAlgorithmInterface {
 
   virtual void RecordIncomingPacket(QuicByteCount bytes,
                                     QuicPacketSequenceNumber sequence_number,
-                                    QuicTime timestamp,
-                                    bool revived) OVERRIDE;
+                                    QuicTime timestamp) OVERRIDE;
 
  private:
   // We need to keep track of FEC recovered packets.
