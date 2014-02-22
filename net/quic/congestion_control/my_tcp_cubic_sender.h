@@ -33,8 +33,7 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   virtual void SetMaxPacketSize(QuicByteCount max_packet_size) OVERRIDE;
   virtual void OnIncomingQuicCongestionFeedbackFrame(
       const QuicCongestionFeedbackFrame& feedback,
-      QuicTime feedback_receive_time,
-      const SentPacketsMap& sent_packets) OVERRIDE;
+      QuicTime feedback_receive_time) OVERRIDE;
   virtual void OnPacketAcked(QuicPacketSequenceNumber acked_sequence_number,
                              QuicByteCount acked_bytes) OVERRIDE;
   virtual void OnPacketLost(QuicPacketSequenceNumber sequence_number,
@@ -62,7 +61,22 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   // End implementation of SendAlgorithmInterface.
 
  private:
-  friend class test::MyTcpCubicSenderPeer;
+  class SentPacket {
+   public:
+    SentPacket(QuicByteCount bytes, QuicTime timestamp)
+        : bytes_sent_(bytes),
+          send_timestamp_(timestamp) { }
+    QuicByteCount bytes_sent() const { return bytes_sent_; }
+    const QuicTime& send_timestamp() const { return send_timestamp_; }
+
+   private:
+    QuicByteCount bytes_sent_;
+    QuicTime send_timestamp_;
+  };
+
+  typedef std::map<QuicPacketSequenceNumber, SentPacket*> SentPacketsMap;
+
+  SentPacketsMap packet_history_map_;
 
   QuicByteCount max_segment_size_;
 

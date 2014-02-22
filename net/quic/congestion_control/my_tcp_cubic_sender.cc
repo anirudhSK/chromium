@@ -4,6 +4,8 @@
 
 #include "net/quic/congestion_control/my_tcp_cubic_sender.h"
 
+#include "base/stl_util.h"
+
 namespace net {
 
 namespace {
@@ -33,6 +35,7 @@ MyTcpCubicSender::MyTcpCubicSender()
 }
 
 MyTcpCubicSender::~MyTcpCubicSender() {
+  STLDeleteValues(&packet_history_map_);
 }
 
 void MyTcpCubicSender::SetFromConfig(const QuicConfig& config, bool is_server) {
@@ -49,15 +52,18 @@ void MyTcpCubicSender::SetMaxPacketSize(QuicByteCount max_packet_size) {
 
 void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     const QuicCongestionFeedbackFrame& feedback,
-    QuicTime feedback_receive_time,
-    const SentPacketsMap& sent_packets) {
+    QuicTime feedback_receive_time) {
+  QuicPacketSequenceNumber last_sequence_number = 0;
+
   for (TimeMap::const_iterator received_it =
        feedback.my_tcp.received_packet_times.begin();
        received_it != feedback.my_tcp.received_packet_times.end();
        ++received_it) {
     const QuicPacketSequenceNumber sequence_number = received_it->first;
-    SentPacketsMap::const_iterator sent_it = sent_packets.find(sequence_number);
-    if (sent_it == sent_packets.end()) {
+    last_sequence_number = sequence_number;
+    SentPacketsMap::const_iterator sent_it =
+        packet_history_map_.find(sequence_number);
+    if (sent_it == packet_history_map_.end()) {
       // Too old data; ignore and move forward.
       continue;
     }
@@ -67,7 +73,7 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
 
     bool force_update = false;
     sent_it++;
-    if (sent_it == sent_packets.end()) {
+    if (sent_it == packet_history_map_.end()) {
       force_update = true;
     } else {
       const QuicTime time_next_sent = sent_it->second->send_timestamp();
@@ -101,6 +107,19 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
       last_update_time_ = force_update ? QuicTime::Zero() : time_received;
     }
   }
+
+  if (last_sequence_number != 0) {
+    for (SentPacketsMap::iterator history_it = packet_history_map_.begin();
+         history_it != packet_history_map_.end();) {
+      if (history_it->first > last_sequence_number) {
+        break;
+      }
+      SentPacketsMap::iterator erase_it = history_it;
+      ++history_it;
+      delete erase_it->second;
+      packet_history_map_.erase(erase_it);
+    }
+  }
 }
 
 void MyTcpCubicSender::OnPacketAcked(
@@ -115,9 +134,11 @@ void MyTcpCubicSender::OnPacketLost(
 }
 
 bool MyTcpCubicSender::OnPacketSent(
-    QuicTime /*sent_time*/, QuicPacketSequenceNumber sequence_number,
+    QuicTime sent_time, QuicPacketSequenceNumber sequence_number,
     QuicByteCount bytes, TransmissionType transmission_type,
     HasRetransmittableData is_retransmittable) {
+  packet_history_map_[sequence_number] = new SentPacket(bytes, sent_time);
+
   // Only update bytes_in_flight_ for data packets.
   if (is_retransmittable != HAS_RETRANSMITTABLE_DATA) {
     return false;
