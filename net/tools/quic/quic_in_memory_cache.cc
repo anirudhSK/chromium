@@ -4,6 +4,10 @@
 
 #include "net/tools/quic/quic_in_memory_cache.h"
 
+#include <iostream>
+#include <stdio.h>
+
+#include "base/environment.h"
 #include "base/file_util.h"
 #include "base/files/file_enumerator.h"
 #include "base/stl_util.h"
@@ -68,8 +72,64 @@ QuicInMemoryCache* QuicInMemoryCache::GetInstance() {
   return Singleton<QuicInMemoryCache>::get();
 }
 
+static const base::StringPiece uri_without_host(base::StringPiece uri) {
+  if (uri[0] == '/') {
+    return uri;
+  }
+
+  if (StringPieceUtils::StartsWithIgnoreCase(uri, "https://")) {
+    uri.remove_prefix(8);
+  } else if (StringPieceUtils::StartsWithIgnoreCase(uri, "http://")) {
+    uri.remove_prefix(7);
+  }
+  return uri.substr(uri.find('/'));
+}
+
 const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     const BalsaHeaders& request_headers) const {
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+
+  env->SetVar("REQUEST_METHOD", request_headers.request_method().as_string());
+
+  const string& uri = uri_without_host(request_headers.request_uri()).as_string();
+  env->SetVar("REQUEST_URI", uri);
+  env->SetVar("SCRIPT_NAME", uri);
+
+  env->SetVar("SERVER_PROTOCOL", "HTTP/1.1");
+
+  // Elide: HTTP_HOST
+
+  std::vector<base::StringPiece> encodings;
+  request_headers.GetAllOfHeader("accept-encoding", &encodings);
+  if (!encodings.empty()) {
+    env->SetVar("HTTP_ACCEPT_ENCODING", encodings[0].as_string());
+  }
+
+  std::vector<base::StringPiece> languages;
+  request_headers.GetAllOfHeader("accept-language", &languages);
+  if (!languages.empty()) {
+    env->SetVar("HTTP_ACCEPT_LANGUAGE", languages[0].as_string());
+  }
+
+  // Hardcode: RECORD_FOLDER
+  env->SetVar("RECORD_FOLDER", "/home/somakrdas/Downloads/hari_homepage/");
+
+  // Hardcode: nph-replayserver.cgi
+  const char *cgi_path = "/home/somakrdas/mahimahi/nph-replayserver.cgi";
+
+  FILE* pipe = popen(cgi_path, "r"); // http://stackoverflow.com/questions/478898
+  CHECK(pipe);
+  char buffer[128];
+  std::string stdout = "";
+  while (!feof(pipe)) {
+    if (fgets(buffer, 128, pipe) != NULL) {
+      stdout += buffer;
+    }
+  }
+  pclose(pipe);
+  printf(">>> %s <<<\n", stdout.c_str());
+
+  // Original implementation:
   ResponseMap::const_iterator it = responses_.find(GetKey(request_headers));
   if (it == responses_.end()) {
     return NULL;
