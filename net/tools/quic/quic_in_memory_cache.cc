@@ -117,7 +117,8 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
   // Hardcode: nph-replayserver.cgi
   const char *cgi_path = "/home/somakrdas/mahimahi/nph-replayserver.cgi";
 
-  FILE* pipe = popen(cgi_path, "r"); // http://stackoverflow.com/questions/478898
+  // Credit to http://stackoverflow.com/questions/478898/.
+  FILE* pipe = popen(cgi_path, "r");
   CHECK(pipe);
   char buffer[128];
   std::string stdout = "";
@@ -127,14 +128,37 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     }
   }
   pclose(pipe);
-  printf(">>> %s <<<\n", stdout.c_str());
 
-  // Original implementation:
-  ResponseMap::const_iterator it = responses_.find(GetKey(request_headers));
-  if (it == responses_.end()) {
-    return NULL;
+  // Frame HTTP.
+  BalsaHeaders response_headers;
+  CachingBalsaVisitor caching_visitor;
+  BalsaFrame framer;
+  framer.set_balsa_headers(&response_headers);
+  framer.set_balsa_visitor(&caching_visitor);
+  size_t processed = 0;
+  while (processed < stdout.length() &&
+         !caching_visitor.done_framing()) {
+    processed += framer.ProcessInput(stdout.c_str() + processed,
+                                     stdout.length() - processed);
   }
-  return it->second;
+
+  CHECK(caching_visitor.done_framing() || processed == stdout.length());
+  if (processed < stdout.length()) {
+    // Didn't frame whole file. Assume remainder is body.
+    // This sometimes happens as a result of incompatibilities between
+    // BalsaFramer and wget's serialization of HTTP sans content-length.
+    caching_visitor.AppendToBody(stdout.c_str() + processed,
+                                 stdout.length() - processed);
+    processed += stdout.length();
+  }
+
+  Response* new_response = new Response();
+  new_response->set_headers(response_headers);
+  new_response->set_body(caching_visitor.body());
+  std::string key("cgi_no_cache_required");
+  responses_.erase(key);
+  responses_[key] = new_response;
+  return new_response;
 }
 
 void QuicInMemoryCache::AddSimpleResponse(StringPiece method,
