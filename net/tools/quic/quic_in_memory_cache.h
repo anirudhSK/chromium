@@ -108,7 +108,7 @@ class QuicInMemoryCache {
   std::string GetKey(const BalsaHeaders& response_headers) const;
 
   // Cached responses.
-  ResponseMap responses_;
+  mutable ResponseMap responses_;
 
   DISALLOW_COPY_AND_ASSIGN(QuicInMemoryCache);
 };
