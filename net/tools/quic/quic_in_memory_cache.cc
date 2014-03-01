@@ -156,9 +156,10 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
   new_response->set_headers(response_headers);
   new_response->set_body(caching_visitor.body());
   std::string key("cgi_no_cache_required");
+  delete responses_[key];
   responses_.erase(key);
   responses_[key] = new_response;
-  return new_response;
+  return responses_[key];
 }
 
 void QuicInMemoryCache::AddSimpleResponse(StringPiece method,
