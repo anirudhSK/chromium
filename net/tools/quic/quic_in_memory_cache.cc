@@ -28,6 +28,8 @@ namespace net {
 namespace tools {
 
 std::string FLAGS_quic_in_memory_cache_dir = "";
+std::string FLAGS_record_folder = "";
+std::string FLAGS_replay_server = "";
 
 namespace {
 
@@ -129,11 +131,7 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     env->SetVar("HTTP_ACCEPT_LANGUAGE", languages[0].as_string());
   }
 
-  // Hardcode: RECORD_FOLDER
-  env->SetVar("RECORD_FOLDER", "/home/somakrdas/Downloads/hari_homepage/");
-
-  // Hardcode: nph-replayserver.cgi
-  const char *cgi_path = "/home/somakrdas/mahimahi/nph-replayserver.cgi";
+  env->SetVar("RECORD_FOLDER", FLAGS_record_folder);
 
   char tmpfile_name[L_tmpnam];
   tmpnam(tmpfile_name);
@@ -144,7 +142,8 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     CHECK(fd >= 0);
     CHECK(dup2(fd, 1) == 1);
     CHECK(close(fd) == 0);
-    CHECK(execl(cgi_path, cgi_path, static_cast<char *>(NULL)) >= 0);
+    CHECK(execl(FLAGS_replay_server.c_str(), FLAGS_replay_server.c_str(),
+        static_cast<char *>(NULL)) >= 0);
     exit(0);
   } else {
     CHECK(wait(&pid) > 0);
@@ -234,6 +233,8 @@ void QuicInMemoryCache::AddSpecialResponse(StringPiece method,
 
 QuicInMemoryCache::QuicInMemoryCache() {
   Initialize();
+
+
 }
 
 void QuicInMemoryCache::ResetForTests() {
