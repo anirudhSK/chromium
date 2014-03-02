@@ -4,8 +4,10 @@
 
 #include "net/tools/quic/quic_in_memory_cache.h"
 
-#include <iostream>
+#include <fcntl.h>
 #include <stdio.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "base/environment.h"
 #include "base/file_util.h"
@@ -72,7 +74,8 @@ QuicInMemoryCache* QuicInMemoryCache::GetInstance() {
   return Singleton<QuicInMemoryCache>::get();
 }
 
-static const base::StringPiece uri_without_host(base::StringPiece uri) {
+// Converts "http://localhost/page.html" to "/page.html".
+static const base::StringPiece hostless_uri(base::StringPiece uri) {
   if (uri[0] == '/') {
     return uri;
   }
@@ -85,19 +88,34 @@ static const base::StringPiece uri_without_host(base::StringPiece uri) {
   return uri.substr(uri.find('/'));
 }
 
+// Converts "/page.html?arg=1" to "/page.html".
+static const base::StringPiece script_name(base::StringPiece uri) {
+  size_t question_mark_pos = uri.find('?');
+  return question_mark_pos == std::string::npos ? uri : uri.substr(0, question_mark_pos);
+}
+
 const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     const BalsaHeaders& request_headers) const {
   scoped_ptr<base::Environment> env(base::Environment::Create());
 
   env->SetVar("REQUEST_METHOD", request_headers.request_method().as_string());
 
-  const string& uri = uri_without_host(request_headers.request_uri()).as_string();
+  const std::string& uri = hostless_uri(request_headers.request_uri()).as_string();
   env->SetVar("REQUEST_URI", uri);
-  env->SetVar("SCRIPT_NAME", uri);
+
+  env->SetVar("SCRIPT_NAME", script_name(uri).as_string());
 
   env->SetVar("SERVER_PROTOCOL", "HTTP/1.1");
 
-  // Elide: HTTP_HOST
+  const std::string& host = request_headers.GetHeader("host").as_string();
+  if (!host.empty()) {
+    env->SetVar("HTTP_HOST", host);
+  }
+
+  const std::string& cookie = request_headers.GetHeader("cookie").as_string();
+  if (!cookie.empty()) {
+    env->SetVar("HTTP_COOKIE", cookie);
+  }
 
   std::vector<base::StringPiece> encodings;
   request_headers.GetAllOfHeader("accept-encoding", &encodings);
@@ -117,17 +135,23 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
   // Hardcode: nph-replayserver.cgi
   const char *cgi_path = "/home/somakrdas/mahimahi/nph-replayserver.cgi";
 
-  // Credit to http://stackoverflow.com/questions/478898/.
-  FILE* pipe = popen(cgi_path, "r");
-  CHECK(pipe);
-  char buffer[128];
-  std::string stdout = "";
-  while (!feof(pipe)) {
-    if (fgets(buffer, 128, pipe) != NULL) {
-      stdout += buffer;
-    }
+  char tmpfile_name[L_tmpnam];
+  tmpnam(tmpfile_name);
+  int pid = fork();
+  CHECK(pid >= 0);
+  if (pid == 0) {
+    int fd = open(tmpfile_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+    CHECK(fd >= 0);
+    CHECK(dup2(fd, 1) == 1);
+    CHECK(close(fd) == 0);
+    CHECK(execl(cgi_path, cgi_path, static_cast<char *>(NULL)) >= 0);
+    exit(0);
+  } else {
+    CHECK(wait(&pid) > 0);
   }
-  pclose(pipe);
+  std::string stdout;
+  base::ReadFileToString(FilePath(tmpfile_name), &stdout);
+  CHECK(remove(tmpfile_name) == 0);
 
   // Frame HTTP.
   BalsaHeaders response_headers;
@@ -142,7 +166,7 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
                                      stdout.length() - processed);
   }
 
-  CHECK(caching_visitor.done_framing() || processed == stdout.length());
+  CHECK(caching_visitor.done_framing());
   if (processed < stdout.length()) {
     // Didn't frame whole file. Assume remainder is body.
     // This sometimes happens as a result of incompatibilities between
@@ -152,6 +176,7 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
     processed += stdout.length();
   }
 
+  // TODO(somakrdas): Not thread-safe.
   Response* new_response = new Response();
   new_response->set_headers(response_headers);
   new_response->set_body(caching_visitor.body());
