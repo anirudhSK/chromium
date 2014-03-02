@@ -46,6 +46,16 @@ int main(int argc, char *argv[]) {
         line->GetSwitchValueASCII("quic_in_memory_cache_dir");
   }
 
+  if (line->HasSwitch("record_folder")) {
+    net::tools::FLAGS_record_folder =
+        line->GetSwitchValueASCII("record_folder");
+  }
+
+  if (line->HasSwitch("replay_server")) {
+    net::tools::FLAGS_replay_server =
+        line->GetSwitchValueASCII("replay_server");
+  }
+
   if (line->HasSwitch("port")) {
     int port;
     if (base::StringToInt(line->GetSwitchValueASCII("port"), &port)) {

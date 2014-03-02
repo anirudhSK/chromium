@@ -24,6 +24,8 @@ class QuicInMemoryCachePeer;
 }  // namespace
 
 extern std::string FLAGS_quic_in_memory_cache_dir;
+extern std::string FLAGS_record_folder;
+extern std::string FLAGS_replay_server;
 
 class QuicServer;
 
