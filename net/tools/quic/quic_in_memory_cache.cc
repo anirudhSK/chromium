@@ -4,8 +4,8 @@
 
 #include "net/tools/quic/quic_in_memory_cache.h"
 
-#include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -133,12 +133,12 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
 
   env->SetVar("RECORD_FOLDER", FLAGS_record_folder);
 
-  char tmpfile_name[L_tmpnam];
-  tmpnam(tmpfile_name);
+  char tmpfile_name[] = "/tmp/quicserver.XXXXXX";
+  int fd = mkstemp(tmpfile_name);
+  CHECK(fd >= 0);
   int pid = fork();
   CHECK(pid >= 0);
   if (pid == 0) {
-    int fd = open(tmpfile_name, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
     CHECK(fd >= 0);
     CHECK(dup2(fd, 1) == 1);
     CHECK(close(fd) == 0);
@@ -146,6 +146,7 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
         static_cast<char *>(NULL)) >= 0);
     exit(0);
   } else {
+    CHECK(close(fd) == 0);
     CHECK(wait(&pid) > 0);
   }
   std::string stdout;
