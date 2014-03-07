@@ -34,6 +34,7 @@ int main(int argc, char *argv[]) {
         "\n"
         "Options:\n"
         "-h, --help                  show this help message and exit\n"
+        "--ip=<ip>                   specify the IP address to listen on\n"
         "--port=<port>               specify the port to listen on\n"
         "--quic_in_memory_cache_dir  directory containing response data\n"
         "                            to load\n";
@@ -56,6 +57,13 @@ int main(int argc, char *argv[]) {
         line->GetSwitchValueASCII("replay_server");
   }
 
+  net::IPAddressNumber ip;
+  if (line->HasSwitch("ip")) {
+    CHECK(net::ParseIPLiteralToNumber(line->GetSwitchValueASCII("ip"), &ip));
+  } else {
+    CHECK(net::ParseIPLiteralToNumber("::", &ip));
+  }
+
   if (line->HasSwitch("port")) {
     int port;
     if (base::StringToInt(line->GetSwitchValueASCII("port"), &port)) {
@@ -64,9 +72,6 @@ int main(int argc, char *argv[]) {
   }
 
   base::AtExitManager exit_manager;
-
-  net::IPAddressNumber ip;
-  CHECK(net::ParseIPLiteralToNumber("::", &ip));
 
   net::tools::QuicServer server;
 
