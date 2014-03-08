@@ -76,10 +76,18 @@ QuicInMemoryCache* QuicInMemoryCache::GetInstance() {
   return Singleton<QuicInMemoryCache>::get();
 }
 
-// Converts "http://localhost/page.html" to "/page.html".
-static const base::StringPiece hostless_uri(base::StringPiece uri) {
+struct parsed_uri_t {
+  base::StringPiece host;
+  base::StringPiece hostless_uri;
+};
+
+// Converts "http://localhost/page.html" to ("localhost", "/page.html").
+static const parsed_uri_t parse_uri(base::StringPiece uri) {
+  parsed_uri_t parsed_uri;
+  parsed_uri.host = "";
+  parsed_uri.hostless_uri = uri;
   if (uri[0] == '/') {
-    return uri;
+    return parsed_uri;
   }
 
   if (StringPieceUtils::StartsWithIgnoreCase(uri, "https://")) {
@@ -87,7 +95,15 @@ static const base::StringPiece hostless_uri(base::StringPiece uri) {
   } else if (StringPieceUtils::StartsWithIgnoreCase(uri, "http://")) {
     uri.remove_prefix(7);
   }
-  return uri.substr(uri.find('/'));
+  size_t slash_pos = uri.find('/');
+  if (slash_pos == std::string::npos) {
+    parsed_uri.host = uri;
+    parsed_uri.hostless_uri = "";
+  } else {
+    parsed_uri.host = uri.substr(0, slash_pos);
+    parsed_uri.hostless_uri = uri.substr(slash_pos);
+  }
+  return parsed_uri;
 }
 
 // Converts "/page.html?arg=1" to "/page.html".
@@ -102,16 +118,18 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
 
   env->SetVar("REQUEST_METHOD", request_headers.request_method().as_string());
 
-  const std::string& uri = hostless_uri(request_headers.request_uri()).as_string();
-  env->SetVar("REQUEST_URI", uri);
+  const parsed_uri_t parsed_uri = parse_uri(request_headers.request_uri());
+  env->SetVar("REQUEST_URI", parsed_uri.hostless_uri.as_string());
 
-  env->SetVar("SCRIPT_NAME", script_name(uri).as_string());
+  env->SetVar("SCRIPT_NAME", script_name(parsed_uri.hostless_uri).as_string());
 
   env->SetVar("SERVER_PROTOCOL", "HTTP/1.1");
 
   const std::string& host = request_headers.GetHeader("host").as_string();
   if (!host.empty()) {
     env->SetVar("HTTP_HOST", host);
+  } else if (!parsed_uri.host.empty()) {
+    env->SetVar("HTTP_HOST", parsed_uri.host.as_string());
   }
 
   const std::string& cookie = request_headers.GetHeader("cookie").as_string();
@@ -133,7 +151,7 @@ const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
 
   env->SetVar("RECORD_FOLDER", FLAGS_record_folder);
 
-  char tmpfile_name[] = "/tmp/quicserver.XXXXXX";
+  char tmpfile_name[] = "/tmp/quic_server.XXXXXX";
   int fd = mkstemp(tmpfile_name);
   CHECK(fd >= 0);
   int pid = fork();
