@@ -263,11 +263,23 @@ void URLRequest::UnregisterRequestInterceptor(Interceptor* interceptor) {
       interceptor);
 }
 
-void URLRequest::Init(const GURL& url,
+void URLRequest::Init(const GURL& _url,
                       RequestPriority priority,
                       Delegate* delegate,
                       const URLRequestContext* context,
                       CookieStore* cookie_store) {
+  // If QUIC, replace HTTPS with HTTP over port 443.
+  url_canon::Replacements<char> replacements;
+  const char kNewScheme[] = "http";
+  const char kNewPort[] = "443";
+  if (context->GetNetworkSessionParams()->enable_quic && _url.SchemeIs("https")) {
+    replacements.SetScheme(kNewScheme,
+                           url_parse::Component(0, strlen(kNewScheme)));
+    replacements.SetPort(kNewPort,
+                         url_parse::Component(0, strlen(kNewPort)));
+  }
+  const GURL& url = _url.ReplaceComponents(replacements);
+
   context_ = context;
   network_delegate_ = context->network_delegate();
   net_log_ = BoundNetLog::Make(context->net_log(), NetLog::SOURCE_URL_REQUEST);
@@ -724,7 +736,7 @@ void URLRequest::StartJob(URLRequestJob* job) {
           CLEAR_REFERRER_ON_TRANSITION_FROM_SECURE_TO_INSECURE &&
       GURL(referrer_).SchemeIsSecure() && !url().SchemeIsSecure()) {
 #if !defined(OFFICIAL_BUILD)
-    LOG(FATAL) << "Trying to send secure referrer for insecure load";
+    LOG(ERROR) << "Trying to send secure referrer for insecure load";
 #endif
     referrer_.clear();
     base::RecordAction(
