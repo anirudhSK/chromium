@@ -82,6 +82,7 @@ struct parsed_uri_t {
 };
 
 // Converts "http://localhost/page.html" to ("localhost", "/page.html").
+// TODO(somakrdas): Replace with a proper URL parser.
 static const parsed_uri_t parse_uri(base::StringPiece uri) {
   parsed_uri_t parsed_uri;
   parsed_uri.host = "";
@@ -101,6 +102,10 @@ static const parsed_uri_t parse_uri(base::StringPiece uri) {
     parsed_uri.hostless_uri = "";
   } else {
     parsed_uri.host = uri.substr(0, slash_pos);
+    size_t colon_pos = parsed_uri.host.find(':');
+    if (colon_pos != std::string::npos) {
+      parsed_uri.host = parsed_uri.host.substr(0, colon_pos);
+    }
     parsed_uri.hostless_uri = uri.substr(slash_pos);
   }
   return parsed_uri;
