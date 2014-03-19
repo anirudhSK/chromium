@@ -263,22 +263,22 @@ void URLRequest::UnregisterRequestInterceptor(Interceptor* interceptor) {
       interceptor);
 }
 
-void URLRequest::Init(const GURL& _url,
+void URLRequest::Init(const GURL& input_url,
                       RequestPriority priority,
                       Delegate* delegate,
                       const URLRequestContext* context,
                       CookieStore* cookie_store) {
   // If QUIC, replace HTTPS with HTTP over port 443.
   url_canon::Replacements<char> replacements;
-  const char kNewScheme[] = "http";
-  const char kNewPort[] = "443";
-  if (context->GetNetworkSessionParams()->enable_quic && _url.SchemeIs("https")) {
+  static const char kNewScheme[] = "http";
+  static const char kNewPort[] = "443";
+  if (context->GetNetworkSessionParams()->enable_quic && input_url.SchemeIs("https")) {
     replacements.SetScheme(kNewScheme,
                            url_parse::Component(0, strlen(kNewScheme)));
     replacements.SetPort(kNewPort,
                          url_parse::Component(0, strlen(kNewPort)));
   }
-  const GURL& url = _url.ReplaceComponents(replacements);
+  const GURL& url = input_url.ReplaceComponents(replacements);
 
   context_ = context;
   network_delegate_ = context->network_delegate();
@@ -1039,7 +1039,19 @@ int URLRequest::Redirect(const GURL& location, int http_status_code) {
     referrer_.clear();
   }
 
-  url_chain_.push_back(location);
+  // If QUIC, replace HTTPS with HTTP over port 443.
+  url_canon::Replacements<char> replacements;
+  static const char kNewScheme[] = "http";
+  static const char kNewPort[] = "443";
+  if (context_->GetNetworkSessionParams()->enable_quic && location.SchemeIs("https")) {
+    replacements.SetScheme(kNewScheme,
+                           url_parse::Component(0, strlen(kNewScheme)));
+    replacements.SetPort(kNewPort,
+                         url_parse::Component(0, strlen(kNewPort)));
+  }
+  const GURL& modified_url = location.ReplaceComponents(replacements);
+
+  url_chain_.push_back(modified_url);
   --redirect_limit_;
 
   Start();
