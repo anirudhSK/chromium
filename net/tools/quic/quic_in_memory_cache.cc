@@ -115,6 +115,11 @@ static const parsed_uri_t parse_uri(base::StringPiece uri) {
 static const base::StringPiece script_name(base::StringPiece uri) {
   size_t question_mark_pos = uri.find('?');
   return question_mark_pos == std::string::npos ? uri : uri.substr(0, question_mark_pos);
+  // TODO(somakrdas): Test.
+  // base::StringPiece queryless_uri =
+  //     (question_mark_pos == std::string::npos) ? uri : uri.substr(0, question_mark_pos);
+  // size_t slash_pos = queryless_uri.rfind('/');
+  // return (slash_pos == std::string::npos) ? "" : queryless_uri.substr(0, slash_pos);
 }
 
 const QuicInMemoryCache::Response* QuicInMemoryCache::GetResponse(
