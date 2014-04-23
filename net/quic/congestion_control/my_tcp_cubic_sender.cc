@@ -19,6 +19,7 @@ const int64 kTargetDelayMs = 100;
 const int64 kMinTickLengthMs = 20;
 const int64 kMaxTimeToNextMs = 5;
 const float kGamma = 0.125f;
+const int64 kInitialTicksStart = 5;
 };  // namespace
 
 MyTcpCubicSender::MyTcpCubicSender()
@@ -30,7 +31,8 @@ MyTcpCubicSender::MyTcpCubicSender()
           kInitialCongestionWindow * kMaxPacketSize / kTargetDelayMs)),
       last_update_time_(QuicTime::Zero()),
       bytes_in_tick_(0),
-      min_rtt_(QuicTime::Delta::Zero()) {
+      min_rtt_(QuicTime::Delta::Zero()),
+      initial_ticks_left(kInitialTicksStart) {
   DVLOG(1) << "Using the Sprout-EWMA sender";
 }
 
@@ -94,8 +96,15 @@ void MyTcpCubicSender::OnIncomingQuicCongestionFeedbackFrame(
     if (tick_length.ToMilliseconds() >= kMinTickLengthMs) {
       QuicBandwidth throughput =
           QuicBandwidth::FromBytesAndTimeDelta(bytes_in_tick_, tick_length);
-      smoothed_throughput_ = smoothed_throughput_.Scale(1.0 - kGamma).Add(
-          throughput.Scale(kGamma));
+      if (initial_ticks_left > 0) {
+        if (smoothed_throughput_ < throughput) {
+          smoothed_throughput_ = throughput;
+        }
+        initial_ticks_left--;
+      } else {
+        smoothed_throughput_ = smoothed_throughput_.Scale(1.0 - kGamma).Add(
+            throughput.Scale(kGamma));
+      }
 
       DVLOG(1) << "tick length = " << tick_length.ToMilliseconds() << " ms";
       DVLOG(1) << "bytes in this tick = " << bytes_in_tick_;
