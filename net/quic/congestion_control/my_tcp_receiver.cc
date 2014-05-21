@@ -14,7 +14,7 @@ const size_t kMaxTimeMapSize = 8;
 MyTcpReceiver::MyTcpReceiver()
     : accumulated_number_of_recoverd_lost_packets_(0),
       receive_window_(kReceiveWindowTCP) {
-  DLOG(INFO) << "Using the MyTCP receiver";
+  DVLOG(1) << "Using the MyTCP receiver";
 }
 
 bool MyTcpReceiver::GenerateCongestionFeedback(

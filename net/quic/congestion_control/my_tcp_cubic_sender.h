@@ -97,6 +97,7 @@ class NET_EXPORT_PRIVATE MyTcpCubicSender : public SendAlgorithmInterface {
   QuicByteCount bytes_in_tick_;
   QuicTime::Delta min_rtt_;
   int64 initial_ticks_left;
+  int packets_in_burst_;
 
   DISALLOW_COPY_AND_ASSIGN(MyTcpCubicSender);
 };

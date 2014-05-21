@@ -20,6 +20,7 @@ const int64 kMinTickLengthMs = 20;
 const int64 kMaxTimeToNextMs = 5;
 const float kGamma = 0.125f;
 const int64 kInitialTicksStart = 5;
+const int kMinBurst = 3;
 };  // namespace
 
 MyTcpCubicSender::MyTcpCubicSender()
@@ -32,7 +33,8 @@ MyTcpCubicSender::MyTcpCubicSender()
       last_update_time_(QuicTime::Zero()),
       bytes_in_tick_(0),
       min_rtt_(QuicTime::Delta::Zero()),
-      initial_ticks_left(kInitialTicksStart) {
+      initial_ticks_left(kInitialTicksStart),
+      packets_in_burst_(0) {
   DVLOG(1) << "Using the Sprout-EWMA sender";
 }
 
@@ -154,6 +156,7 @@ bool MyTcpCubicSender::OnPacketSent(
   }
 
   bytes_in_flight_ += bytes;
+  packets_in_burst_ = (packets_in_burst_ % kMinBurst) + 1;
   return true;
 }
 
@@ -180,7 +183,8 @@ QuicTime::Delta MyTcpCubicSender::TimeUntilSend(
     // concept is not present in TCP.
     return QuicTime::Delta::Zero();
   }
-  return GetCongestionWindow() > bytes_in_flight_ ? QuicTime::Delta::Zero() :
+  return (GetCongestionWindow() > bytes_in_flight_
+      || packets_in_burst_ < kMinBurst) ? QuicTime::Delta::Zero() :
       QuicTime::Delta::Infinite();
 }
 
